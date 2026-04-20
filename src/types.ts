@@ -7,6 +7,7 @@ export interface Contact {
   id: string;
   name: string;
   phone: string;
+  email?: string;
   relation: string;
   isPrimary: boolean;
 }
@@ -62,6 +63,11 @@ export interface AppSettings {
   shakeToAlert: boolean;
   audioTrigger: boolean;
   darkMode: boolean;
+  alertMethods: {
+    sms: boolean;
+    call: boolean;
+    email: boolean;
+  };
 }
 
 export interface SafetyState {

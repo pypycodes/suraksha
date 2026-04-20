@@ -10,6 +10,10 @@ const STORAGE_KEYS = {
   SETTINGS: 'suraksha_settings',
 };
 
+const generateUUID = () => {
+  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+};
+
 const DEFAULT_SETTINGS: AppSettings = {
   userName: '',
   emergencyMessage: "I'm in an emergency! Here is my location.",
@@ -30,6 +34,11 @@ const DEFAULT_SETTINGS: AppSettings = {
   shakeToAlert: false,
   audioTrigger: false,
   darkMode: false,
+  alertMethods: {
+    sms: true,
+    call: true,
+    email: true,
+  },
 };
 
 const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -119,9 +128,12 @@ export function useSafety() {
     localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(newHistory));
   }, []);
 
-  const updateLogs = useCallback((newLogs: EmergencyLog[]) => {
-    setLogs(newLogs);
-    localStorage.setItem(STORAGE_KEYS.LOGS, JSON.stringify(newLogs));
+  const updateLogs = useCallback((update: EmergencyLog[] | ((prev: EmergencyLog[]) => EmergencyLog[])) => {
+    setLogs(prev => {
+      const next = typeof update === 'function' ? update(prev) : update;
+      localStorage.setItem(STORAGE_KEYS.LOGS, JSON.stringify(next));
+      return next;
+    });
   }, []);
 
   const updateSettings = useCallback((newSettings: AppSettings) => {
@@ -132,7 +144,7 @@ export function useSafety() {
   // Helpers
   const _addLocationLog = useCallback((lat: number, lng: number, label?: string) => {
     const newEntry: LocationEntry = {
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       timestamp: Date.now(),
       latitude: lat,
       longitude: lng,
@@ -173,20 +185,30 @@ export function useSafety() {
     }
 
     const newLog: EmergencyLog = {
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       timestamp: Date.now(),
       type: 'PANIC',
       location: currentPos,
-      details: 'Panic button pressed. Emergency alerts simulated to contacts.',
+      details: `Panic button pressed. Emergency alerts (${Object.entries(settings.alertMethods).filter(([_, v]) => v).map(([k]) => k.toUpperCase()).join(', ')}) initiated to contacts.`,
     };
-    updateLogs([newLog, ...logs]);
+    
+    updateLogs(prev => [newLog, ...prev]);
 
+    // Simulated alerts
     contacts.forEach(c => {
-      console.log(`SIMULATED SMS to ${c.name} (${c.phone}): ${settings.emergencyMessage} https://maps.google.com/?q=${currentPos?.lat},${currentPos?.lng}`);
+      if (settings.alertMethods.sms) {
+        console.log(`[SIMULATED SMS] to ${c.name} (${c.phone}): ${settings.emergencyMessage} https://maps.google.com/?q=${currentPos?.lat},${currentPos?.lng}`);
+      }
+      if (settings.alertMethods.email && c.email) {
+        console.log(`[SIMULATED EMAIL] to ${c.name} (${c.email}): EMERGENCY ALERT! ${settings.emergencyMessage} Location: https://maps.google.com/?q=${currentPos?.lat},${currentPos?.lng}`);
+      }
+      if (settings.alertMethods.call) {
+        console.log(`[SIMULATED CALL] Initiating automated emergency call to ${c.name} (${c.phone})...`);
+      }
     });
 
     return newLog;
-  }, [contacts, settings.emergencyMessage, logs, updateLogs, _addLocationLog]);
+  }, [contacts, settings.emergencyMessage, settings.alertMethods, updateLogs, _addLocationLog]);
 
   const addLocationEntry = useCallback((lat: number, lng: number, label?: string) => {
     _addLocationLog(lat, lng, label);
@@ -205,13 +227,13 @@ export function useSafety() {
       if (dist < 50) {
         setJourney(prev => prev ? { ...prev, status: 'ARRIVED', active: false } : null);
         const arrivalLog: EmergencyLog = {
-          id: crypto.randomUUID(),
+          id: generateUUID(),
           timestamp: Date.now(),
           type: 'RECORDING',
           details: `Safe Arrival reached: ${journey.destinationName}`,
           location: { lat, lng }
         };
-        updateLogs([arrivalLog, ...logs]);
+        updateLogs(prev => [arrivalLog, ...prev]);
         contacts.forEach(c => console.log(`SIMULATED Arrival SMS to ${c.name}: Your loved one has reached ${journey.destinationName} safely.`));
       }
     }
