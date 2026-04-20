@@ -1,3 +1,5 @@
+import { SMS } from '@awesome-cordova-plugins/sms';
+import { CallNumber } from '@awesome-cordova-plugins/call-number';
 import { useState, useEffect, useCallback } from 'react';
 import { Geolocation } from '@capacitor/geolocation';
 import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
@@ -37,7 +39,6 @@ const DEFAULT_SETTINGS: AppSettings = {
   alertMethods: {
     sms: true,
     call: true,
-    email: true,
   },
 };
 
@@ -208,16 +209,47 @@ export function useSafety() {
     
     updateLogs(prev => [newLog, ...prev]);
 
-    // Simulated alerts
+    // Simulated & Native Intent alerts
     contacts.forEach(c => {
+      const gMapsUrl = `https://maps.google.com/?q=${currentPos?.lat},${currentPos?.lng}`;
+      const message = `${settings.emergencyMessage} ${gMapsUrl}`;
+
       if (settings.alertMethods.sms) {
-        console.log(`[SIMULATED SMS] to ${c.name} (${c.phone}): ${settings.emergencyMessage} https://maps.google.com/?q=${currentPos?.lat},${currentPos?.lng}`);
+        console.log(`[SMS ATTEMPT] to ${c.phone}: ${message}`);
+        
+        // Try background SMS sending first (Native only)
+        try {
+          SMS.send(c.phone, message, {
+            android: {
+              intent: '' // Empty string triggers background send on Android if SEND_SMS permission exists
+            }
+          }).then(() => {
+            console.log(`[BACKGROUND SMS SUCCESS] sent to ${c.phone}`);
+          }).catch((err) => {
+            console.warn(`[BACKGROUND SMS FAILED] falling back to draft: ${err}`);
+            window.open(`sms:${c.phone}?body=${encodeURIComponent(message)}`, '_blank');
+          });
+        } catch (e) {
+          console.warn('[BACKGROUND SMS UNSUPPORTED] falling back to draft');
+          window.open(`sms:${c.phone}?body=${encodeURIComponent(message)}`, '_blank');
+        }
       }
-      if (settings.alertMethods.email && c.email) {
-        console.log(`[SIMULATED EMAIL] to ${c.name} (${c.email}): EMERGENCY ALERT! ${settings.emergencyMessage} Location: https://maps.google.com/?q=${currentPos?.lat},${currentPos?.lng}`);
-      }
+      
       if (settings.alertMethods.call) {
-        console.log(`[SIMULATED CALL] Initiating automated emergency call to ${c.name} (${c.phone})...`);
+        console.log(`[CALL ATTEMPT] to ${c.phone}`);
+        
+        // Try direct call (skips dialer screen on many Android versions)
+        try {
+          CallNumber.callNumber(c.phone, true)
+            .then(() => console.log(`[DIRECT CALL SUCCESS] initiated to ${c.phone}`))
+            .catch((err) => {
+              console.warn(`[DIRECT CALL FAILED] falling back to dialer: ${err}`);
+              window.open(`tel:${c.phone}`, '_blank');
+            });
+        } catch (e) {
+          console.warn('[DIRECT CALL UNSUPPORTED] falling back to dialer');
+          window.open(`tel:${c.phone}`, '_blank');
+        }
       }
     });
 

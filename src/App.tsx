@@ -609,12 +609,12 @@ function NavButton({ active, icon: Icon, onClick, darkMode }: { active: boolean,
 
 function ContactsView({ contacts, onUpdate, darkMode }: { contacts: any[], onUpdate: (c: any[]) => void, darkMode?: boolean }) {
   const [isAdding, setIsAdding] = useState(false);
-  const [newContact, setNewContact] = useState({ name: '', phone: '', email: '', relation: '' });
+  const [newContact, setNewContact] = useState({ name: '', phone: '', relation: '' });
 
   const addContact = () => {
     if (newContact.name && newContact.phone) {
       onUpdate([{ ...newContact, id: generateID(), isPrimary: contacts.length === 0 }, ...contacts]);
-      setNewContact({ name: '', phone: '', email: '', relation: '' });
+      setNewContact({ name: '', phone: '', relation: '' });
       setIsAdding(false);
     }
   };
@@ -673,7 +673,6 @@ function ContactsView({ contacts, onUpdate, darkMode }: { contacts: any[], onUpd
                   )}>Primary</span>}
                 </div>
                 <div className="text-xs text-zinc-400 font-mono tracking-wider">{c.phone}</div>
-                {c.email && <div className="text-[11px] text-zinc-400 truncate max-w-[150px] font-medium opacity-80">{c.email}</div>}
               </div>
             </div>
             <button onClick={() => deleteContact(c.id)} className="p-2 text-zinc-300 hover:text-red-500 transition-colors">
@@ -695,10 +694,7 @@ function ContactsView({ contacts, onUpdate, darkMode }: { contacts: any[], onUpd
             </div>
             <div className="space-y-4">
               <Input label="Full Name" placeholder="e.g. Maa" value={newContact.name} onChange={(v) => setNewContact({...newContact, name: v})} />
-              <div className="grid grid-cols-2 gap-4">
-                <Input label="Phone Number" placeholder="+91 00000" type="tel" value={newContact.phone} onChange={(v) => setNewContact({...newContact, phone: v})} />
-                <Input label="Email Alert" placeholder="email@example.com" value={newContact.email} onChange={(v) => setNewContact({...newContact, email: v})} />
-              </div>
+              <Input label="Phone Number" placeholder="+91 00000" type="tel" value={newContact.phone} onChange={(v) => setNewContact({...newContact, phone: v})} />
               <Input label="Relation" placeholder="e.g. Sister" value={newContact.relation} onChange={(v) => setNewContact({...newContact, relation: v})} />
             </div>
             <button onClick={addContact} className="w-full bg-zinc-900 text-white font-bold py-4 rounded-2xl active:scale-95 transition-all">
@@ -803,12 +799,6 @@ function SettingsView({ settings, onUpdate, currentPos }: { settings: any, onUpd
               label="Phone Call Alerts (Mandatory)" 
               checked={settings.alertMethods.call} 
               onChange={(v) => onUpdate({...settings, alertMethods: { ...settings.alertMethods, call: true }})} // Forced true as per user request
-             />
-             <div className={cn("h-px transition-colors", settings.darkMode ? "bg-zinc-800" : "bg-zinc-50")} />
-             <Toggle 
-              label="Email Notifications" 
-              checked={settings.alertMethods.email} 
-              onChange={(v) => onUpdate({...settings, alertMethods: { ...settings.alertMethods, email: v }})} 
              />
           </div>
           <p className="mt-2 text-[10px] text-zinc-400 px-2 flex items-start gap-2">

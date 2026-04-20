@@ -122,3 +122,37 @@ Ensure your `.gitignore` does not block the Gradle wrapper:
 # Add this to your .gitignore to ensure build stability
 !android/gradle/wrapper/gradle-wrapper.jar
 ```
+
+## Background SOS Setup (CRITICAL)
+
+To enable **Full Background SOS** (sending SMS without any user interaction), you must manually add the matching permission to your Android source code.
+
+### 1. Update AndroidManifest.xml
+Open `android/app/src/main/AndroidManifest.xml` and add these two permissions inside the `<manifest>` tag:
+
+```xml
+<!-- Required for Background SMS -->
+<uses-permission android:name="android.permission.SEND_SMS" />
+<!-- Required for Direct SOS Calling (bypass dialer screen) -->
+<uses-permission android:name="android.permission.CALL_PHONE" />
+```
+
+### 2. Verify Plugin Installation
+```bash
+npm install
+npx cap sync android
+```
+
+### 3. Build & Run
+```bash
+npm run build
+npx cap copy android
+cd android && ./gradlew assembleDebug
+```
+
+---
+
+## Important Platform Limitations
+
+- **Phone Calls**: Android requires a user to press the "Call" button once to prevent apps from making unauthorized long-distance charges. 
+- **Background SMS**: Requires the `SEND_SMS` permission. On modern Android versions, the app must ask the user for permission the first time it opens.

@@ -7,7 +7,6 @@ export interface Contact {
   id: string;
   name: string;
   phone: string;
-  email?: string;
   relation: string;
   isPrimary: boolean;
 }
@@ -66,7 +65,6 @@ export interface AppSettings {
   alertMethods: {
     sms: boolean;
     call: boolean;
-    email: boolean;
   };
 }
 
