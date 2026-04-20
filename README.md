@@ -81,3 +81,44 @@ npm start
 ## Environment Variables
 Create a `.env` file in the root based on `.env.example`:
 - `GEMINI_API_KEY`: Required for AI-powered voice safety features.
+
+---
+
+## Troubleshooting
+
+### 1. `Unable to access jarfile .../gradle-wrapper.jar`
+This happens if the Gradle engine is missing. Re-initialize the android folder:
+```bash
+rm -rf android
+npx cap add android
+npm run build
+npx cap sync android
+```
+
+### 2. `Could not parse error string` (Emulator Install Error)
+Windows emulators struggle to read files directly from `\\wsl$\`. 
+- **Fix**: Copy your APK from WSL into a Windows folder (like `Downloads`) and drag it into the emulator from there.
+- **Alternative**: Use ADB directly from WSL:
+  ```bash
+  adb install android/app/build/outputs/apk/debug/app-debug.apk
+  ```
+
+### 3. `adb devices` is empty (WSL can't see Emulator)
+Point WSL to your Windows ADB server:
+```bash
+export ADB_SERVER_SOCKET=tcp:localhost:5037
+adb devices
+```
+
+### 4. `Rollup failed to resolve import "@capacitor/..."`
+The packages are in `package.json` but not installed in your local `node_modules`.
+```bash
+npm install
+```
+
+### 5. Prevent `.jar` files from being ignored
+Ensure your `.gitignore` does not block the Gradle wrapper:
+```text
+# Add this to your .gitignore to ensure build stability
+!android/gradle/wrapper/gradle-wrapper.jar
+```
