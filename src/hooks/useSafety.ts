@@ -117,7 +117,6 @@ export function useSafety() {
     if (savedSettings) {
       try {
         const parsed = JSON.parse(savedSettings);
-        // Deep merge with DEFAULT_SETTINGS to ensure new keys (like alertMethods) are present
         setSettings({
           ...DEFAULT_SETTINGS,
           ...parsed,
@@ -129,6 +128,21 @@ export function useSafety() {
       }
     }
     
+    // Request Native Permissions for Background SOS
+    const requestNativePermissions = async () => {
+      try {
+        // Request Background SMS Permission if on Android
+        if ((window as any).sms && (window as any).sms.hasPermission) {
+          (window as any).sms.hasPermission((has: boolean) => {
+            if (!has) (window as any).sms.requestPermission(() => console.log('SMS Permission Granted'), () => console.warn('SMS Permission Denied'));
+          });
+        }
+      } catch (e) {
+        console.warn('Native setup check failed', e);
+      }
+    };
+    
+    requestNativePermissions();
     setIsReady(true);
   }, []);
 
@@ -217,16 +231,18 @@ export function useSafety() {
       if (settings.alertMethods.sms) {
         console.log(`[SMS ATTEMPT] to ${c.phone}: ${message}`);
         
-        // Try background SMS sending first (Native only)
+        // Use the most direct native call for background SMS
+        const smsPlugin = (window as any).sms || SMS;
+        
         try {
-          SMS.send(c.phone, message, {
+          smsPlugin.send(c.phone, message, {
             android: {
-              intent: '' // Empty string triggers background send on Android if SEND_SMS permission exists
+              intent: '' // STRICT: An empty string tells Android to bypass the SMS editor UI
             }
-          }).then(() => {
+          }, () => {
             console.log(`[BACKGROUND SMS SUCCESS] sent to ${c.phone}`);
-          }).catch((err) => {
-            console.warn(`[BACKGROUND SMS FAILED] falling back to draft: ${err}`);
+          }, (err: any) => {
+            console.warn(`[BACKGROUND SMS FAILED] falling back to draft: ${JSON.stringify(err)}`);
             window.open(`sms:${c.phone}?body=${encodeURIComponent(message)}`, '_blank');
           });
         } catch (e) {
@@ -238,14 +254,16 @@ export function useSafety() {
       if (settings.alertMethods.call) {
         console.log(`[CALL ATTEMPT] to ${c.phone}`);
         
-        // Try direct call (skips dialer screen on many Android versions)
+        // DIRECT CALL: The 'true' parameter tells Android to skip the Dialer screen
+        const callPlugin = (window as any).plugins?.CallNumber || CallNumber;
+        
         try {
-          CallNumber.callNumber(c.phone, true)
-            .then(() => console.log(`[DIRECT CALL SUCCESS] initiated to ${c.phone}`))
-            .catch((err) => {
-              console.warn(`[DIRECT CALL FAILED] falling back to dialer: ${err}`);
-              window.open(`tel:${c.phone}`, '_blank');
-            });
+          callPlugin.callNumber(() => {
+            console.log(`[DIRECT CALL SUCCESS] initiated to ${c.phone}`);
+          }, (err: any) => {
+            console.warn(`[DIRECT CALL FAILED] falling back to dialer: ${err}`);
+            window.open(`tel:${c.phone}`, '_blank');
+          }, c.phone, true);
         } catch (e) {
           console.warn('[DIRECT CALL UNSUPPORTED] falling back to dialer');
           window.open(`tel:${c.phone}`, '_blank');
