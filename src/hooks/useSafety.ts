@@ -112,7 +112,21 @@ export function useSafety() {
     if (savedContacts) setContacts(JSON.parse(savedContacts));
     if (savedHistory) setHistory(JSON.parse(savedHistory));
     if (savedLogs) setLogs(JSON.parse(savedLogs));
-    if (savedSettings) setSettings(JSON.parse(savedSettings));
+    
+    if (savedSettings) {
+      try {
+        const parsed = JSON.parse(savedSettings);
+        // Deep merge with DEFAULT_SETTINGS to ensure new keys (like alertMethods) are present
+        setSettings({
+          ...DEFAULT_SETTINGS,
+          ...parsed,
+          geofence: { ...DEFAULT_SETTINGS.geofence, ...(parsed.geofence || {}) },
+          alertMethods: { ...DEFAULT_SETTINGS.alertMethods, ...(parsed.alertMethods || {}) }
+        });
+      } catch (e) {
+        console.error('Failed to parse settings', e);
+      }
+    }
     
     setIsReady(true);
   }, []);
@@ -189,7 +203,7 @@ export function useSafety() {
       timestamp: Date.now(),
       type: 'PANIC',
       location: currentPos,
-      details: `Panic button pressed. Emergency alerts (${Object.entries(settings.alertMethods).filter(([_, v]) => v).map(([k]) => k.toUpperCase()).join(', ')}) initiated to contacts.`,
+      details: `Panic button pressed. Emergency alerts (${Object.entries(settings.alertMethods || DEFAULT_SETTINGS.alertMethods).filter(([_, v]) => v).map(([k]) => k.toUpperCase()).join(', ')}) initiated to contacts.`,
     };
     
     updateLogs(prev => [newLog, ...prev]);

@@ -123,6 +123,8 @@ export default function App() {
   if (!isReady) return <div className="h-screen w-screen flex items-center justify-center bg-zinc-50 font-medium">Loading Suraksha...</div>;
 
   const handlePanicStart = () => {
+    if (isActivating) return;
+    
     try {
       Haptics.impact({ style: ImpactStyle.Heavy });
     } catch (e) {}
