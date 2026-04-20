@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Geolocation } from '@capacitor/geolocation';
+import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 import { Contact, LocationEntry, EmergencyLog, AppSettings, Journey } from '../types';
 
 const STORAGE_KEYS = {
@@ -141,15 +143,33 @@ export function useSafety() {
   }, [history, updateHistory]);
 
   const triggerPanic = useCallback(async () => {
+    // Vibrate to confirm trigger
+    try {
+      await Haptics.notification({ type: NotificationType.Error });
+    } catch (e) {
+      console.warn('Haptics not supported');
+    }
+
     let currentPos: { lat: number, lng: number } | undefined;
     try {
-      const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true });
+      const pos = await Geolocation.getCurrentPosition({
+        enableHighAccuracy: true,
+        timeout: 10000
       });
       currentPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
       _addLocationLog(currentPos.lat, currentPos.lng, 'Panic Trigger Location');
     } catch (err) {
-      console.error('Location failed', err);
+      console.error('Capacitor Location failed, falling back to Web API', err);
+      // Fallback to web API if capacitor fails (e.g. permissions)
+      try {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true });
+        });
+        currentPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        _addLocationLog(currentPos.lat, currentPos.lng, 'Panic Trigger Location (Web Fallback)');
+      } catch (webErr) {
+        console.error('Web Location also failed', webErr);
+      }
     }
 
     const newLog: EmergencyLog = {

@@ -31,6 +31,7 @@ import {
   HeartPulse
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { useSafety } from './hooks/useSafety';
 import { useRecording } from './hooks/useRecording';
 import { useMotion } from './hooks/useMotion';
@@ -120,6 +121,9 @@ export default function App() {
   if (!isReady) return <div className="h-screen w-screen flex items-center justify-center bg-zinc-50 font-medium">Loading Suraksha...</div>;
 
   const handlePanicStart = () => {
+    try {
+      Haptics.impact({ style: ImpactStyle.Heavy });
+    } catch (e) {}
     setIsActivating(true);
     setPanicCountdown(3);
     const interval = setInterval(() => {
@@ -571,9 +575,16 @@ function ActionButton({ icon: Icon, label, color, onClick, darkMode }: { icon: a
 }
 
 function NavButton({ active, icon: Icon, onClick, darkMode }: { active: boolean, icon: any, onClick: () => void, darkMode?: boolean }) {
+  const handleClick = () => {
+    try {
+      Haptics.impact({ style: ImpactStyle.Light });
+    } catch (e) {}
+    onClick();
+  };
+
   return (
     <button 
-      onClick={onClick}
+      onClick={handleClick}
       className={cn(
         "flex flex-col items-center gap-1 transition-colors duration-300",
         active 
