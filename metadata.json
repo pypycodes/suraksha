@@ -1,0 +1,10 @@
+{
+  "name": "Suraksha - Family Safety & Elderly Care",
+  "description": "A comprehensive local-first safety app for women, children, and the elderly in India. Features include Geofencing, Safe Journey tracking, Panic Button, SOS Widget, and Dark Mode. No ads, no cloud hosting required.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ],
+  "majorCapabilities": []
+}
