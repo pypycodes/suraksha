@@ -114,9 +114,18 @@ export default function App() {
       }
     };
     updateLocation();
-    const interval = setInterval(updateLocation, 60000); 
-    return () => clearInterval(interval);
-  }, [addLocationEntry]);
+    const handleNativePanic = () => {
+      setShowToast({ message: 'Native SOS Triggered!', type: 'success' });
+      triggerPanic();
+    };
+
+    window.addEventListener('nativePanicTrigger', handleNativePanic);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('nativePanicTrigger', handleNativePanic);
+    };
+  }, [addLocationEntry, triggerPanic]);
 
   if (!isReady) return <div className="h-screen w-screen flex items-center justify-center bg-zinc-50 font-medium">Loading Suraksha...</div>;
 
@@ -230,7 +239,7 @@ export default function App() {
                 settings.darkMode ? "glass-card" : "bg-white border-zinc-100"
               )}>
                 <div className="absolute inset-0 bg-gradient-to-b from-red-500/5 to-transparent pointer-events-none" />
-                <SafetyMap center={currentPosition} markers={[{ id: 'me', position: currentPosition }]} className="h-32 mb-5 rounded-[24px] overflow-hidden" />
+                <SafetyMap center={currentPosition || { lat: 19.0760, lng: 72.8777 }} markers={currentPosition ? [{ id: 'me', position: currentPosition }] : []} className="h-32 mb-5 rounded-[24px] overflow-hidden" />
                 {isRecording && (
                   <motion.div 
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }}

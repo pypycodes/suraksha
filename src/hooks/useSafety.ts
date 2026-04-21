@@ -65,7 +65,7 @@ export function useSafety() {
   const [journey, setJourney] = useState<Journey | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [batteryLevel, setBatteryLevel] = useState<number | null>(null);
-  const [currentPosition, setCurrentPosition] = useState<{ lat: number; lng: number }>({ lat: 19.0760, lng: 72.8777 });
+  const [currentPosition, setCurrentPosition] = useState<{ lat: number; lng: number } | null>(null);
   const [deadMansSwitch, setDeadMansSwitch] = useState<{ active: boolean; timeLeft: number; totalTime: number } | null>(null);
 
   // Battery Monitoring
@@ -155,9 +155,15 @@ export function useSafety() {
       }
     };
     
-    requestNativePermissions();
-    setIsReady(true);
-  }, []);
+      requestNativePermissions();
+      
+      // Get initial position
+      Geolocation.getCurrentPosition({ enableHighAccuracy: true }).then(pos => {
+        setCurrentPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      }).catch(err => console.warn('Initial position fetch failed', err));
+
+      setIsReady(true);
+    }, []);
 
   // Save data wrappers
   const updateContacts = useCallback((newContacts: Contact[]) => {
@@ -204,25 +210,19 @@ export function useSafety() {
       console.warn('Haptics not supported');
     }
 
-    let locToUse = currentPosition; // Use state position as baseline
+    let locToUse = currentPosition;
     try {
       const pos = await Geolocation.getCurrentPosition({
         enableHighAccuracy: true,
-        timeout: 15000
+        timeout: 20000,
+        maximumAge: 0
       });
       locToUse = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      setCurrentPosition(locToUse); // Update state for future use
       _addLocationLog(locToUse.lat, locToUse.lng, 'Panic Trigger Location');
     } catch (err) {
-      console.error('Capacitor Location failed, falling back to Web API', err);
-      try {
-        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 5000 });
-        });
-        locToUse = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        _addLocationLog(locToUse.lat, locToUse.lng, 'Panic Trigger Location (Web Fallback)');
-      } catch (webErr) {
-        console.error('Web Location also failed', webErr);
-      }
+      console.error('Location fetch failed', err);
+      // Fallback is already locToUse (currentPosition)
     }
 
     const newLog: EmergencyLog = {
@@ -237,7 +237,7 @@ export function useSafety() {
 
     // Simulated & Native Intent alerts
     contacts.forEach(c => {
-      const gMapsUrl = locToUse ? `https://maps.google.com/?q=${locToUse.lat},${locToUse.lng}` : 'Location Unavailable';
+      const gMapsUrl = locToUse ? `https://www.google.com/maps/search/?api=1&query=${locToUse.lat},${locToUse.lng}` : 'Location Unavailable';
       const message = `${settings.emergencyMessage} ${gMapsUrl}`;
 
       if (settings.alertMethods.sms) {
@@ -246,7 +246,8 @@ export function useSafety() {
         // Normalize SMS sending logic for Native background execution
         const options = {
           android: {
-            intent: '' // STRICT: An empty string tells Android to bypass the editor UI
+            intent: '', // STRICT: An empty string tells Android to bypass the editor UI
+            slot: -1    // Use default SIM slot
           }
         };
 
