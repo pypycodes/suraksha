@@ -170,44 +170,48 @@ export default function App() {
   return (
     <div className={cn(
       "flex flex-col h-screen font-sans select-none overflow-hidden max-w-md mx-auto relative border-x transition-colors duration-300",
-      settings.darkMode ? "bg-zinc-950 text-white border-zinc-800 dark" : "bg-zinc-50 text-zinc-900 border-zinc-200"
+      settings.darkMode ? "bg-[#0F172A] text-[#F8FAFC] border-slate-800 dark" : "bg-zinc-50 text-zinc-900 border-zinc-200"
     )}>
       
       {/* Header */}
       <header className={cn(
-        "px-6 pt-12 pb-6 border-b shrink-0 transition-colors",
-        settings.darkMode ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-100"
+        "mx-4 mt-6 mb-4 p-5 flex justify-between items-center bg-slate-800/50 rounded-3xl border border-slate-700/50 shadow-xl backdrop-blur-md transition-colors",
+        !settings.darkMode && "bg-white border-zinc-100 shadow-sm"
       )}>
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-red-500 rounded-lg">
-              <Shield className="w-5 h-5 text-white" />
-            </div>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center shadow-lg">
+            <Shield className="w-5 h-5 text-white" />
+          </div>
+          <div>
             <h1 className={cn(
-              "text-xl font-bold tracking-tight transition-colors",
+              "text-lg font-bold tracking-tight transition-colors flex items-center gap-2",
               settings.darkMode ? "text-white" : "text-zinc-900"
-            )}>Suraksha</h1>
+            )}>SURAKSHA <span className="text-red-500 text-[10px] font-medium tracking-widest uppercase">v2.4</span></h1>
+            <p className={cn(
+              "text-[10px] uppercase tracking-wide opacity-60",
+              settings.darkMode ? "text-slate-400" : "text-zinc-500"
+            )}>Security Active</p>
           </div>
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={() => updateSettings({...settings, darkMode: !settings.darkMode})}
-              className={cn(
-                "w-10 h-10 rounded-full flex items-center justify-center transition-colors",
-                settings.darkMode ? "bg-zinc-800 text-amber-400" : "bg-zinc-100 text-zinc-500"
-              )}
-            >
-              {settings.darkMode ? <Zap className="w-5 h-5 fill-current" /> : <Zap className="w-5 h-5" />}
-            </button>
-            <button 
-              onClick={() => setActiveTab('settings')}
-              className={cn(
-                "w-10 h-10 rounded-full flex items-center justify-center transition-colors",
-                settings.darkMode ? "bg-zinc-800 text-zinc-400" : "bg-zinc-100 text-zinc-500"
-              )}
-            >
-              <Settings className="w-5 h-5" />
-            </button>
-          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => updateSettings({...settings, darkMode: !settings.darkMode})}
+            className={cn(
+              "w-9 h-9 rounded-xl flex items-center justify-center transition-all active:scale-90",
+              settings.darkMode ? "bg-slate-700/50 text-amber-400 border border-slate-600/50" : "bg-zinc-100 text-zinc-500"
+            )}
+          >
+            {settings.darkMode ? <Zap className="w-4 h-4 fill-current" /> : <Zap className="w-4 h-4" />}
+          </button>
+          <button 
+            onClick={() => setActiveTab('settings')}
+            className={cn(
+              "w-9 h-9 rounded-xl flex items-center justify-center transition-all active:scale-90",
+              settings.darkMode ? "bg-slate-700/50 text-slate-400 border border-slate-600/50" : "bg-zinc-100 text-zinc-500"
+            )}
+          >
+            <Settings className="w-4 h-4" />
+          </button>
         </div>
       </header>
 
@@ -224,39 +228,40 @@ export default function App() {
             >
               {/* Emergency Status Card */}
               <div className={cn(
-                "p-6 rounded-3xl border shadow-sm relative overflow-hidden transition-colors",
-                settings.darkMode ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-100"
+                "p-6 rounded-[32px] border relative overflow-hidden transition-all shadow-xl",
+                settings.darkMode ? "glass-card" : "bg-white border-zinc-100"
               )}>
-                <SafetyMap center={currentPos} markers={[{ id: 'me', position: currentPos }]} className="h-32 mb-4 rounded-2xl" />
+                <div className="absolute inset-0 bg-gradient-to-b from-red-500/5 to-transparent pointer-events-none" />
+                <SafetyMap center={currentPos} markers={[{ id: 'me', position: currentPos }]} className="h-32 mb-5 rounded-[24px] overflow-hidden" />
                 {isRecording && (
                   <motion.div 
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                    className="absolute top-0 right-0 p-3 flex items-center gap-2"
+                    className="absolute top-8 right-8 p-2 flex items-center gap-1.5 bg-slate-900/80 backdrop-blur-md rounded-full border border-red-500/30"
                   >
-                    <div className="w-2 h-2 bg-red-500 rounded-full animate-ping" />
-                    <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest">Recording</span>
+                    <div className="w-1.5 h-1.5 bg-red-500 rounded-full active-pulse" />
+                    <span className="text-[8px] font-black text-red-500 uppercase tracking-widest leading-none">Rec</span>
                   </motion.div>
                 )}
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between relative z-10">
                   <div>
-                    <p className="text-sm font-medium text-zinc-400 mb-1">Current Status</p>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 italic">Status Monitoring</p>
                     <div className="flex items-center gap-2">
-                      <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse" />
+                      <div className="w-2 h-2 bg-green-500 rounded-full active-pulse" />
                       <span className={cn(
-                        "text-lg font-semibold transition-colors",
+                        "text-base font-bold transition-colors tracking-tight",
                         settings.darkMode ? "text-white" : "text-zinc-800"
-                      )}>You are protected</span>
+                      )}>Device Secure</span>
                     </div>
                   </div>
                   {batteryLevel !== null && (
                     <div className={cn(
-                      "flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-colors",
-                      settings.darkMode ? "bg-zinc-800 border-zinc-700" : "bg-zinc-50 border-zinc-100"
+                      "flex items-center gap-1.5 px-3 py-2 rounded-2xl border transition-colors bg-slate-900/60",
+                      settings.darkMode ? "border-slate-700/50" : "bg-zinc-50 border-zinc-100"
                     )}>
-                      <Battery className={cn("w-4 h-4", batteryLevel <= 20 ? "text-red-500" : "text-green-500")} />
+                      <Battery className={cn("w-3.5 h-3.5", batteryLevel <= 20 ? "text-red-500" : "text-green-500")} />
                       <span className={cn(
-                        "text-xs font-bold font-mono transition-colors",
-                        settings.darkMode ? "text-zinc-400" : "text-zinc-600"
+                        "text-[10px] font-black font-mono transition-colors",
+                        settings.darkMode ? "text-slate-300" : "text-zinc-600"
                       )}>{batteryLevel}%</span>
                     </div>
                   )}
@@ -297,82 +302,59 @@ export default function App() {
               </div>
 
               {/* Panic Section */}
-              <div className="flex flex-col items-center justify-center py-8">
+              <div className="flex flex-col items-center justify-center py-4">
+                <div className="z-10 text-center mb-6">
+                  <h2 className="text-slate-400 font-bold text-[10px] tracking-[0.2em] mb-1 uppercase">Emergency Override</h2>
+                  <p className="text-[8px] text-slate-500 uppercase tracking-widest italic">{isActivating ? "Alerting Trusted Contacts" : "Press for 3 seconds or say 'Help Now'"}</p>
+                </div>
                 <div className="relative group">
                   {/* Glowing background */}
                   <div className={cn(
-                    "absolute inset-0 bg-red-400 rounded-full blur-2xl opacity-20 transition-all duration-500",
-                    isActivating ? "scale-150 opacity-40" : "scale-100"
+                    "absolute inset-0 bg-red-400 rounded-full blur-3xl opacity-20 transition-all duration-700 animate-pulse",
+                    isActivating ? "scale-150 opacity-50" : "scale-100"
                   )} />
                   
                   <button
                     onContextMenu={(e) => e.preventDefault()}
                     onClick={isActivating ? cancelPanic : handlePanicStart}
                     className={cn(
-                      "relative w-48 h-48 rounded-full flex flex-col items-center justify-center shadow-2xl transition-all duration-300 active:scale-95",
-                      isActivating ? "bg-zinc-900" : "bg-red-500 hover:bg-red-600"
+                      "relative w-56 h-56 rounded-full flex flex-col items-center justify-center shadow-2xl transition-all duration-300 active:scale-95 border-[10px] shadow-red-500/20",
+                      isActivating ? "bg-slate-900 border-slate-800" : "bg-gradient-to-br from-red-500 to-red-700 panic-glow border-slate-900"
                     )}
                   >
                     {isActivating ? (
                       <div className="text-center">
-                        <span className="text-5xl font-bold text-white mb-2 block">{panicCountdown}</span>
-                        <span className="text-red-400 text-xs font-bold uppercase tracking-widest">Cancel</span>
+                        <span className="text-6xl font-black text-white mb-2 block tracking-tighter">{panicCountdown}</span>
+                        <span className="text-red-400 text-[10px] font-black uppercase tracking-widest">Abort</span>
                       </div>
                     ) : (
                       <>
-                        <AlertCircle className="w-16 h-16 text-white mb-2" />
-                        <span className="text-white font-bold text-lg uppercase tracking-tighter">Panic</span>
+                        <span className="text-4xl font-black text-white tracking-tighter leading-none mb-1">PANIC</span>
+                        <span className="text-[10px] font-bold text-red-200 opacity-80 uppercase tracking-widest">Activate Alert</span>
                       </>
                     )}
                   </button>
                 </div>
-                <p className="mt-6 text-zinc-400 text-sm font-medium text-center max-w-[200px]">
-                  {isActivating ? "Alerting contacts..." : "Tap and hold for 3 seconds to trigger emergency alert"}
-                </p>
               </div>
 
               {/* Action Grid */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-5 px-2">
                 <ActionButton 
                   icon={PhoneCall} 
                   label="Fake Call" 
-                  color={settings.darkMode ? "bg-indigo-900/20 text-indigo-400 border-indigo-900/10" : "bg-indigo-50 text-indigo-600 border-zinc-100"}
+                  desc="Trigger immediate call"
+                  iconColor="text-indigo-400"
+                  iconBg="bg-indigo-500/20"
                   onClick={handleFakeCall}
                   darkMode={settings.darkMode}
                 />
                 <ActionButton 
-                  icon={Timer} 
-                  label="Safety Timer" 
-                  color={settings.darkMode ? "bg-zinc-800 text-white border-zinc-700" : "bg-zinc-900 text-white border-zinc-900 shadow-xl"}
-                  onClick={() => setDeadMansSwitch({ active: true, timeLeft: 1200, totalTime: 1200 })}
-                  darkMode={settings.darkMode}
-                />
-                <ActionButton 
-                  icon={HistoryIcon} 
-                  label="Safe Logs" 
-                  color={settings.darkMode ? "bg-amber-900/20 text-amber-400 border-amber-900/10" : "bg-amber-50 text-amber-600 border-zinc-100"}
-                  onClick={() => setActiveTab('history')}
-                  darkMode={settings.darkMode}
-                />
-                <ActionButton 
-                  icon={Navigation} 
-                  label="Journey" 
-                  color={settings.darkMode ? "bg-zinc-800 text-zinc-400 border-zinc-700" : "bg-zinc-100 text-zinc-600 border-zinc-100"}
-                  onClick={() => setActiveTab('journey')}
-                  darkMode={settings.darkMode}
-                />
-                <ActionButton 
-                  icon={Crosshair} 
-                  label="Near Me" 
-                  color={settings.darkMode ? "bg-red-900/20 text-red-400 border-red-900/10" : "bg-red-50 text-red-600 border-zinc-100"}
-                  onClick={() => setActiveTab('near-me')}
-                  darkMode={settings.darkMode}
-                />
-                <ActionButton 
-                  icon={HeartPulse} 
-                  label="First Aid" 
-                  color={settings.darkMode ? "bg-rose-900/20 text-rose-400 border-rose-900/10" : "bg-rose-50 text-rose-500 border-zinc-100"}
-                  onClick={() => setActiveTab('first-aid')}
+                  icon={Ear} 
+                  label="Discreet Rec" 
+                  desc="Capture silent audio"
+                  iconColor="text-pink-400"
+                  iconBg="bg-pink-500/20"
+                  onClick={() => startRecording()}
                   darkMode={settings.darkMode}
                 />
               </div>
@@ -426,40 +408,40 @@ export default function App() {
                 <div className="space-y-4">
                   {logs.map((log) => (
                     <div key={log.id} className={cn(
-                      "p-4 rounded-2xl border shadow-sm flex gap-4 transition-colors",
-                      settings.darkMode ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-100"
+                      "p-5 rounded-[24px] border shadow-xl flex gap-4 transition-all hover:bg-slate-700/20",
+                      settings.darkMode ? "glass-card" : "bg-white border-zinc-100"
                     )}>
                       <div className={cn(
-                        "w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-colors",
+                        "w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-all",
                         log.type === 'PANIC' 
-                          ? (settings.darkMode ? 'bg-red-900/30 text-red-400' : 'bg-red-50 text-red-500') 
-                          : (settings.darkMode ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-100 text-zinc-500')
+                          ? (settings.darkMode ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-red-50 text-red-500') 
+                          : (settings.darkMode ? 'bg-slate-800 text-slate-400 border border-slate-700' : 'bg-zinc-100 text-zinc-500')
                       )}>
                         {log.type === 'PANIC' ? <AlertCircle className="w-6 h-6" /> : <HistoryIcon className="w-6 h-6" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-start mb-1">
                           <h4 className={cn(
-                            "font-bold truncate transition-colors",
+                            "font-bold truncate transition-colors text-sm",
                             settings.darkMode ? "text-white" : "text-zinc-900"
                           )}>
-                            {log.type === 'PANIC' ? 'Emergency Alert' : log.type}
+                            {log.type === 'PANIC' ? 'CRITICAL ALERT' : log.type}
                           </h4>
-                          <span className="text-[10px] font-bold text-zinc-400 whitespace-nowrap">
+                          <span className="text-[9px] font-black text-slate-500 whitespace-nowrap uppercase tracking-widest italic opacity-70">
                             {format(log.timestamp, 'HH:mm dd MMM')}
                           </span>
                         </div>
                         <p className={cn(
-                          "text-sm line-clamp-2 transition-colors",
-                          settings.darkMode ? "text-zinc-400" : "text-zinc-500"
+                          "text-[11px] line-clamp-2 transition-colors font-medium leading-relaxed opacity-80",
+                          settings.darkMode ? "text-slate-400" : "text-zinc-500"
                         )}>{log.details}</p>
                         {log.location && (
                           <div className={cn(
-                            "mt-2 flex items-center gap-1 text-xs transition-colors",
-                            settings.darkMode ? "text-zinc-500" : "text-zinc-400"
+                            "mt-3 flex items-center gap-1.5 text-[9px] font-mono tracking-widest font-black transition-colors uppercase",
+                            settings.darkMode ? "text-slate-500" : "text-zinc-400"
                           )}>
-                            <MapPin className="w-3 h-3" />
-                            <span>{log.location.lat.toFixed(4)}, {log.location.lng.toFixed(4)}</span>
+                            <MapPin className="w-3 h-3 text-red-500/50" />
+                            <span>GPS: {log.location.lat.toFixed(4)}, {log.location.lng.toFixed(4)}</span>
                           </div>
                         )}
                       </div>
@@ -504,26 +486,13 @@ export default function App() {
 
       {/* Bottom Nav */}
       <nav className={cn(
-        "fixed bottom-0 left-0 right-0 max-w-md mx-auto border-t px-4 py-4 z-50 transition-colors backdrop-blur-xl",
-        settings.darkMode ? "bg-zinc-900/80 border-zinc-800" : "bg-white/80 border-zinc-100"
+        "fixed bottom-0 left-0 right-0 max-w-md mx-auto border-t px-6 py-4 z-50 transition-all backdrop-blur-xl",
+        settings.darkMode ? "bg-slate-900/80 border-slate-800 shadow-[0_-10px_40px_rgba(0,0,0,0.4)]" : "bg-white/80 border-zinc-100"
       )}>
-        <div className="flex justify-between items-center max-w-md mx-auto">
+        <div className="flex justify-between items-center bg-slate-800/40 p-2 rounded-[24px] border border-slate-700/50 backdrop-blur-md px-6">
           <NavButton active={activeTab === 'dashboard'} icon={HomeIcon} onClick={() => setActiveTab('dashboard')} darkMode={settings.darkMode} />
           <NavButton active={activeTab === 'journey'} icon={Navigation} onClick={() => setActiveTab('journey')} darkMode={settings.darkMode} />
-          <NavButton active={activeTab === 'near-me'} icon={Crosshair} onClick={() => setActiveTab('near-me')} darkMode={settings.darkMode} />
-          
-          {/* Float SOS Widget */}
-          <div className="relative -top-10">
-            <button 
-              onClick={handlePanicStart}
-              className="w-16 h-16 bg-red-600 rounded-full border-4 border-white shadow-2xl flex items-center justify-center active:scale-90 transition-transform active:bg-red-700"
-            >
-              <AlertCircle className="w-8 h-8 text-white" />
-            </button>
-          </div>
-
           <NavButton active={activeTab === 'contacts'} icon={Users} onClick={() => setActiveTab('contacts')} darkMode={settings.darkMode} />
-          <NavButton active={activeTab === 'resources'} icon={Plus} onClick={() => setActiveTab('resources')} darkMode={settings.darkMode} />
           <NavButton active={activeTab === 'history'} icon={HistoryIcon} onClick={() => setActiveTab('history')} darkMode={settings.darkMode} />
         </div>
       </nav>
@@ -561,18 +530,22 @@ export default function App() {
 
 // Sub-components
 
-function ActionButton({ icon: Icon, label, color, onClick, darkMode }: { icon: any, label: string, color: string, onClick: () => void, darkMode?: boolean }) {
+function ActionButton({ icon: Icon, label, desc, iconBg, iconColor, onClick, darkMode }: { icon: any, label: string, desc: string, iconBg: string, iconColor: string, onClick: () => void, darkMode?: boolean }) {
   return (
     <button 
       onClick={onClick}
       className={cn(
-        "p-6 rounded-3xl flex flex-col items-center gap-3 shadow-sm border active:scale-95 transition-all text-center", 
-        color,
-        !color.includes('border') && (darkMode ? "border-zinc-800" : "border-zinc-100")
+        "p-6 rounded-[32px] flex flex-col justify-between items-start transition-all duration-300 active:scale-95 group relative overflow-hidden h-40", 
+        darkMode ? "glass-card hover:bg-slate-700/40" : "bg-white border-zinc-100 hover:bg-zinc-50 shadow-sm"
       )}
     >
-      <Icon className="w-8 h-8" />
-      <span className="font-bold text-sm">{label}</span>
+      <div className={cn("p-3 rounded-2xl mb-4 transition-transform group-hover:scale-110", iconBg)}>
+        <Icon className={cn("w-6 h-6", iconColor)} />
+      </div>
+      <div className="text-left">
+        <span className={cn("font-bold text-sm block mb-0.5", darkMode ? "text-white" : "text-zinc-900")}>{label}</span>
+        <span className="text-[9px] text-slate-500 font-medium uppercase tracking-tighter line-clamp-1">{desc}</span>
+      </div>
     </button>
   );
 }
@@ -589,20 +562,13 @@ function NavButton({ active, icon: Icon, onClick, darkMode }: { active: boolean,
     <button 
       onClick={handleClick}
       className={cn(
-        "flex flex-col items-center gap-1 transition-colors duration-300",
+        "flex flex-col items-center gap-1 transition-all duration-300 p-2 rounded-xl active:scale-95",
         active 
-          ? (darkMode ? "text-white" : "text-zinc-900") 
-          : (darkMode ? "text-zinc-600" : "text-zinc-300")
+          ? (darkMode ? "bg-slate-700/50 text-white shadow-lg border border-slate-600/50" : "bg-white text-zinc-900 border border-zinc-200") 
+          : (darkMode ? "text-slate-500 hover:text-slate-300" : "text-zinc-400 hover:text-zinc-600")
       )}
     >
-      <div className={cn(
-        "p-1.5 rounded-xl transition-colors",
-        active 
-          ? (darkMode ? "bg-zinc-800" : "bg-zinc-100") 
-          : "bg-transparent"
-      )}>
-        <Icon className="w-5 h-5" />
-      </div>
+      <Icon className="w-5 h-5" />
     </button>
   );
 }
@@ -651,15 +617,15 @@ function ContactsView({ contacts, onUpdate, darkMode }: { contacts: any[], onUpd
         )}
         {contacts.map((c) => (
           <div key={c.id} className={cn(
-            "p-4 rounded-2xl border shadow-sm flex justify-between items-center transition-colors",
-            darkMode ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-100"
+            "p-5 rounded-[24px] border shadow-xl flex justify-between items-center transition-all group",
+            darkMode ? "glass-card hover:bg-slate-700/40" : "bg-white border-zinc-100"
           )}>
             <div className="flex items-center gap-4">
               <div className={cn(
-                "w-12 h-12 rounded-full flex items-center justify-center transition-colors",
-                darkMode ? "bg-zinc-800" : "bg-zinc-50"
+                "w-12 h-12 rounded-full flex items-center justify-center transition-all group-hover:scale-110",
+                darkMode ? "bg-slate-800 border border-slate-700" : "bg-zinc-50"
               )}>
-                <Users className="w-5 h-5 text-zinc-400" />
+                <Users className="w-5 h-5 text-slate-400" />
               </div>
               <div>
                 <div className={cn(
@@ -668,15 +634,15 @@ function ContactsView({ contacts, onUpdate, darkMode }: { contacts: any[], onUpd
                 )}>
                   {c.name}
                   {c.isPrimary && <span className={cn(
-                    "text-[10px] px-2 py-0.5 rounded-full uppercase tracking-tighter transition-colors",
-                    darkMode ? "bg-red-900/30 text-red-400" : "bg-red-50 text-red-500"
-                  )}>Primary</span>}
+                    "text-[8px] px-2 py-0.5 rounded-lg uppercase tracking-widest font-black transition-colors",
+                    darkMode ? "bg-red-500/20 text-red-400 border border-red-500/30" : "bg-red-50 text-red-500"
+                  )}>Emergency</span>}
                 </div>
-                <div className="text-xs text-zinc-400 font-mono tracking-wider">{c.phone}</div>
+                <div className="text-[10px] text-slate-500 font-mono tracking-widest opacity-80 uppercase italic">{c.phone}</div>
               </div>
             </div>
-            <button onClick={() => deleteContact(c.id)} className="p-2 text-zinc-300 hover:text-red-500 transition-colors">
-              <Trash2 className="w-5 h-5" />
+            <button onClick={() => deleteContact(c.id)} className="p-3 text-slate-500 hover:text-red-500 transition-colors bg-slate-900/40 rounded-xl border border-slate-700/50">
+              <Trash2 className="w-4 h-4" />
             </button>
           </div>
         ))}
@@ -961,28 +927,28 @@ function ModeButton({ active, icon: Icon, label, onClick }: { active: boolean, i
     <button 
       onClick={onClick}
       className={cn(
-        "flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all h-full",
+        "flex flex-col items-center gap-2 p-5 rounded-[24px] border transition-all h-full active:scale-95 group",
         active 
-          ? "bg-zinc-900 text-white border-zinc-900 shadow-lg dark:bg-white dark:text-zinc-900 dark:border-white" 
-          : "bg-white text-zinc-500 border-zinc-100 dark:bg-zinc-900 dark:text-zinc-500 dark:border-zinc-800"
+          ? "bg-slate-800 text-white border-slate-600 shadow-xl" 
+          : "bg-slate-900/40 text-slate-500 border-slate-800 hover:bg-slate-800/40"
       )}
     >
-      <Icon className="w-5 h-5" />
-      <span className="text-[10px] font-bold uppercase tracking-tighter">{label}</span>
+      <Icon className={cn("w-5 h-5 transition-transform group-hover:scale-110", active ? "text-red-500" : "text-slate-600")} />
+      <span className="text-[9px] font-black uppercase tracking-widest text-center leading-tight">{label}</span>
     </button>
   );
 }
 
 function Input({ label, value, onChange, placeholder, type = 'text' }: { label: string, value: string, onChange: (v: string) => void, placeholder?: string, type?: string }) {
   return (
-    <div className="space-y-1.5">
-      <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider ml-1">{label}</label>
+    <div className="space-y-2">
+      <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2 italic">{label}</label>
       <input 
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl px-5 py-4 text-zinc-900 font-medium placeholder:text-zinc-300 focus:outline-none focus:ring-2 ring-zinc-100 transition-all dark:bg-zinc-800 dark:border-zinc-700 dark:text-white dark:ring-zinc-800"
+        className="w-full bg-slate-900/60 border border-slate-800/80 rounded-[20px] px-6 py-4 text-white font-medium placeholder:text-slate-600 focus:outline-none focus:ring-2 ring-red-500/20 transition-all text-sm"
       />
     </div>
   );
@@ -990,18 +956,18 @@ function Input({ label, value, onChange, placeholder, type = 'text' }: { label: 
 
 function Toggle({ label, checked, onChange }: { label: string, checked: boolean, onChange: (v: boolean) => void }) {
   return (
-    <div className="flex items-center justify-between py-1">
-      <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{label}</span>
+    <div className="flex items-center justify-between py-2">
+      <span className="text-sm font-bold text-slate-300 tracking-tight">{label}</span>
       <button 
         onClick={() => onChange(!checked)}
         className={cn(
-          "w-12 h-6 rounded-full transition-colors relative flex items-center px-1",
-          checked ? 'bg-green-500' : 'bg-zinc-200 dark:bg-zinc-800'
+          "w-14 h-7 rounded-full transition-all relative flex items-center px-1.5 shadow-inner",
+          checked ? 'bg-red-600' : 'bg-slate-800 border border-slate-700'
         )}
       >
         <div className={cn(
-          "w-4 h-4 bg-white rounded-full transition-transform shadow-sm",
-          checked ? 'translate-x-6' : 'translate-x-0'
+          "w-4 h-4 bg-white rounded-full transition-all shadow-lg",
+          checked ? 'translate-x-7 scale-110' : 'translate-x-0'
         )} />
       </button>
     </div>

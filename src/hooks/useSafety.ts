@@ -69,24 +69,27 @@ export function useSafety() {
 
   // Battery Monitoring
   useEffect(() => {
-    const monitorBattery = async () => {
-      try {
-        const battery = await (navigator as any).getBattery();
-        const updateLevel = () => {
-          const level = Math.floor(battery.level * 100);
-          setBatteryLevel(level);
-          if (settings.lowBatteryAlert && level <= 5) {
-             contacts.forEach(c => console.log(`SIMULATED Low Battery SMS to ${c.name}: My phone is at ${level}%. Here is my last location.`));
-          }
-        };
-        battery.addEventListener('levelchange', updateLevel);
-        updateLevel();
-        return () => battery.removeEventListener('levelchange', updateLevel);
-      } catch (e) {
-        console.warn('Battery API not supported');
+    let batteryInstance: any = null;
+    let updateLevel: () => void;
+
+    navigator.getBattery?.().then((battery: any) => {
+      batteryInstance = battery;
+      updateLevel = () => {
+        const level = Math.floor(battery.level * 100);
+        setBatteryLevel(level);
+        if (settings.lowBatteryAlert && level <= 5) {
+           contacts.forEach(c => console.log(`SIMULATED Low Battery Alert for ${c.name}: ${level}% charge remaining.`));
+        }
+      };
+      battery.addEventListener('levelchange', updateLevel);
+      updateLevel();
+    }).catch(() => console.warn('Battery API fallback'));
+
+    return () => {
+      if (batteryInstance && updateLevel) {
+        batteryInstance.removeEventListener('levelchange', updateLevel);
       }
     };
-    monitorBattery();
   }, [settings.lowBatteryAlert, contacts]);
 
   // Dead Man's Switch Timer
@@ -128,7 +131,7 @@ export function useSafety() {
       }
     }
     
-    // Request Native Permissions for Background SOS
+    // Request Native Permissions for Background SOS & Location
     const requestNativePermissions = async () => {
       try {
         // Request Background SMS Permission if on Android
@@ -137,6 +140,15 @@ export function useSafety() {
             if (!has) (window as any).sms.requestPermission(() => console.log('SMS Permission Granted'), () => console.warn('SMS Permission Denied'));
           });
         }
+
+        // Request Location Permissions
+        const perm = await Geolocation.checkPermissions();
+        if (perm.location !== 'granted') {
+          await Geolocation.requestPermissions();
+        }
+        
+        // Accurate background tracking hint
+        console.log('Location and SMS permissions initialized.');
       } catch (e) {
         console.warn('Native setup check failed', e);
       }
@@ -179,9 +191,9 @@ export function useSafety() {
       longitude: lng,
       label,
     };
-    const updated = [newEntry, ...history].slice(0, 50);
-    updateHistory(updated);
-  }, [history, updateHistory]);
+    setHistory(prev => [newEntry, ...prev].slice(0, 50));
+    localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify([newEntry, ...history].slice(0, 50)));
+  }, [history]);
 
   const triggerPanic = useCallback(async () => {
     // Vibrate to confirm trigger
@@ -231,22 +243,39 @@ export function useSafety() {
       if (settings.alertMethods.sms) {
         console.log(`[SMS ATTEMPT] to ${c.phone}: ${message}`);
         
-        // Use the most direct native call for background SMS
-        const smsPlugin = (window as any).sms || SMS;
-        
+        // Normalize SMS sending logic for Native background execution
+        const options = {
+          android: {
+            intent: '' // STRICT: An empty string tells Android to bypass the editor UI
+          }
+        };
+
+        const trySilentSMS = () => {
+          // 1. Try raw window.sms (Cordova plugin)
+          if ((window as any).sms && (window as any).sms.send) {
+            (window as any).sms.send(c.phone, message, options, 
+              () => console.log(`[RAW SMS SUCCESS] to ${c.phone}`),
+              (err: any) => {
+                console.warn(`[RAW SMS FAILED] ${JSON.stringify(err)}. Falling back to intent.`);
+                window.open(`sms:${c.phone}?body=${encodeURIComponent(message)}`, '_blank');
+              }
+            );
+          } 
+          // 2. Try the Awesome Cordova Plugin wrapper (Promise based)
+          else {
+            SMS.send(c.phone, message, options)
+              .then(() => console.log(`[WRAPPED SMS SUCCESS] to ${c.phone}`))
+              .catch((err) => {
+                console.warn(`[WRAPPED SMS FAILED] ${err}. Falling back to intent.`);
+                window.open(`sms:${c.phone}?body=${encodeURIComponent(message)}`, '_blank');
+              });
+          }
+        };
+
         try {
-          smsPlugin.send(c.phone, message, {
-            android: {
-              intent: '' // STRICT: An empty string tells Android to bypass the SMS editor UI
-            }
-          }, () => {
-            console.log(`[BACKGROUND SMS SUCCESS] sent to ${c.phone}`);
-          }, (err: any) => {
-            console.warn(`[BACKGROUND SMS FAILED] falling back to draft: ${JSON.stringify(err)}`);
-            window.open(`sms:${c.phone}?body=${encodeURIComponent(message)}`, '_blank');
-          });
+          trySilentSMS();
         } catch (e) {
-          console.warn('[BACKGROUND SMS UNSUPPORTED] falling back to draft');
+          console.error('[SMS CRITICAL ERROR]', e);
           window.open(`sms:${c.phone}?body=${encodeURIComponent(message)}`, '_blank');
         }
       }
