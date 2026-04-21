@@ -65,6 +65,7 @@ export default function App() {
     triggerPanic,
     addLocationEntry,
     updateLogs,
+    currentPosition,
   } = useSafety();
 
   const { isRecording, startRecording, stopRecording } = useRecording();
@@ -98,7 +99,6 @@ export default function App() {
   const [isActivating, setIsActivating] = useState(false);
   const [panicCountdown, setPanicCountdown] = useState<number | null>(null);
   const [showToast, setShowToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
-  const [currentPos, setCurrentPos] = useState({ lat: 19.0760, lng: 72.8777 }); // Default Mumbai
 
   // Background location updates (simulated)
   useEffect(() => {
@@ -106,9 +106,7 @@ export default function App() {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (pos) => {
-            const newPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-            setCurrentPos(newPos);
-            // addLocationEntry(newPos.lat, newPos.lng);
+            addLocationEntry(pos.coords.latitude, pos.coords.longitude);
           },
           null,
           { enableHighAccuracy: true }
@@ -116,7 +114,7 @@ export default function App() {
       }
     };
     updateLocation();
-    const interval = setInterval(updateLocation, 600000); 
+    const interval = setInterval(updateLocation, 60000); 
     return () => clearInterval(interval);
   }, [addLocationEntry]);
 
@@ -232,7 +230,7 @@ export default function App() {
                 settings.darkMode ? "glass-card" : "bg-white border-zinc-100"
               )}>
                 <div className="absolute inset-0 bg-gradient-to-b from-red-500/5 to-transparent pointer-events-none" />
-                <SafetyMap center={currentPos} markers={[{ id: 'me', position: currentPos }]} className="h-32 mb-5 rounded-[24px] overflow-hidden" />
+                <SafetyMap center={currentPosition} markers={[{ id: 'me', position: currentPosition }]} className="h-32 mb-5 rounded-[24px] overflow-hidden" />
                 {isRecording && (
                   <motion.div 
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }}
@@ -476,20 +474,20 @@ export default function App() {
 
           {activeTab === 'contacts' && <ContactsView contacts={contacts} onUpdate={updateContacts} darkMode={settings.darkMode} />}
           {activeTab === 'resources' && <Resources onOpenNearMe={() => setActiveTab('near-me')} onOpenFirstAid={() => setActiveTab('first-aid')} />}
-          {activeTab === 'near-me' && <NearMe currentPos={currentPos} />}
+          {activeTab === 'near-me' && <NearMe currentPos={currentPosition} />}
           {activeTab === 'first-aid' && <FirstAid onBack={() => setActiveTab('resources')} />}
-          {activeTab === 'settings' && <SettingsView settings={settings} onUpdate={updateSettings} currentPos={currentPos} />}
-          {activeTab === 'journey' && <JourneyView journey={journey} onUpdate={setJourney} currentPos={currentPos} />}
+          {activeTab === 'settings' && <SettingsView settings={settings} onUpdate={updateSettings} currentPos={currentPosition} />}
+          {activeTab === 'journey' && <JourneyView journey={journey} onUpdate={setJourney} currentPos={currentPosition} />}
 
         </AnimatePresence>
       </main>
 
       {/* Bottom Nav */}
       <nav className={cn(
-        "fixed bottom-0 left-0 right-0 max-w-md mx-auto border-t px-6 py-4 z-50 transition-all backdrop-blur-xl",
-        settings.darkMode ? "bg-slate-900/80 border-slate-800 shadow-[0_-10px_40px_rgba(0,0,0,0.4)]" : "bg-white/80 border-zinc-100"
+        "fixed bottom-0 left-0 right-0 max-w-md mx-auto border-t px-6 py-5 z-50 transition-all backdrop-blur-2xl",
+        settings.darkMode ? "bg-slate-950/95 border-slate-800 shadow-[0_-10px_50px_rgba(0,0,0,0.5)]" : "bg-white/95 border-zinc-200"
       )}>
-        <div className="flex justify-between items-center bg-slate-800/40 p-2 rounded-[24px] border border-slate-700/50 backdrop-blur-md px-6">
+        <div className="flex justify-between items-center bg-slate-900 p-2.5 rounded-[28px] border border-slate-800 shadow-2xl px-6">
           <NavButton active={activeTab === 'dashboard'} icon={HomeIcon} onClick={() => setActiveTab('dashboard')} darkMode={settings.darkMode} />
           <NavButton active={activeTab === 'journey'} icon={Navigation} onClick={() => setActiveTab('journey')} darkMode={settings.darkMode} />
           <NavButton active={activeTab === 'contacts'} icon={Users} onClick={() => setActiveTab('contacts')} darkMode={settings.darkMode} />
@@ -504,6 +502,37 @@ export default function App() {
             callerName={settings.fakeCallName} 
             onEnd={() => setShowFakeCall(false)} 
           />
+        )}
+      </AnimatePresence>
+
+      {/* Floating SOS Widget */}
+      <AnimatePresence>
+        {!isActivating ? (
+          <motion.button
+            key="sos-fab"
+            initial={{ scale: 0, opacity: 0, rotate: -45 }}
+            animate={{ scale: 1, opacity: 1, rotate: 0 }}
+            exit={{ scale: 0, opacity: 0, rotate: 45 }}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={handlePanicStart}
+            className="fixed bottom-32 right-6 w-16 h-16 bg-red-600 rounded-full shadow-[0_0_40px_rgba(239,68,68,0.6)] border-4 border-slate-950 flex items-center justify-center z-[60] active-pulse transition-all"
+          >
+            <AlertCircle className="w-8 h-8 text-white" />
+            <span className="absolute -top-1 -right-1 bg-white text-red-600 text-[8px] font-black px-1.5 py-0.5 rounded-full border border-red-600 uppercase tracking-tighter shadow-md">SOS</span>
+          </motion.button>
+        ) : (
+          <motion.button
+            key="sos-countdown"
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1.2, opacity: 1 }}
+            exit={{ scale: 0.8, opacity: 0 }}
+            onClick={cancelPanic}
+            className="fixed bottom-32 right-6 w-20 h-20 bg-slate-900 rounded-full shadow-[0_0_50px_rgba(239,68,68,0.8)] border-4 border-red-600 flex flex-col items-center justify-center z-[70] transition-all"
+          >
+            <span className="text-3xl font-black text-white leading-none">{panicCountdown}</span>
+            <span className="text-[8px] font-black text-red-500 uppercase tracking-widest mt-1">Abort</span>
+          </motion.button>
         )}
       </AnimatePresence>
 
@@ -562,10 +591,10 @@ function NavButton({ active, icon: Icon, onClick, darkMode }: { active: boolean,
     <button 
       onClick={handleClick}
       className={cn(
-        "flex flex-col items-center gap-1 transition-all duration-300 p-2 rounded-xl active:scale-95",
+        "flex flex-col items-center gap-1 transition-all duration-300 p-2.5 rounded-2xl active:scale-90",
         active 
-          ? (darkMode ? "bg-slate-700/50 text-white shadow-lg border border-slate-600/50" : "bg-white text-zinc-900 border border-zinc-200") 
-          : (darkMode ? "text-slate-500 hover:text-slate-300" : "text-zinc-400 hover:text-zinc-600")
+          ? (darkMode ? "bg-red-600 text-white shadow-lg border border-red-500/50" : "bg-red-500 text-white border border-red-400") 
+          : (darkMode ? "text-slate-400 hover:text-white" : "text-zinc-500 hover:text-zinc-800")
       )}
     >
       <Icon className="w-5 h-5" />

@@ -13,6 +13,21 @@ export const FakeCall: React.FC<FakeCallProps> = ({ callerName, onEnd }) => {
   const [timer, setTimer] = useState(0);
 
   useEffect(() => {
+    let audio: HTMLAudioElement;
+    if (status === 'ringing') {
+      audio = new Audio('https://assets.mixkit.co/active_storage/sfx/1359/1359-preview.mp3');
+      audio.loop = true;
+      audio.play().catch(e => console.error('Audio play failed:', e));
+    }
+    return () => {
+      if (audio) {
+        audio.pause();
+        audio.currentTime = 0;
+      }
+    };
+  }, [status]);
+
+  useEffect(() => {
     let interval: NodeJS.Timeout;
     if (status === 'connected') {
       interval = setInterval(() => setTimer(prev => prev + 1), 1000);

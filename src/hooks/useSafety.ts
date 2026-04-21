@@ -65,6 +65,7 @@ export function useSafety() {
   const [journey, setJourney] = useState<Journey | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [batteryLevel, setBatteryLevel] = useState<number | null>(null);
+  const [currentPosition, setCurrentPosition] = useState<{ lat: number; lng: number }>({ lat: 19.0760, lng: 72.8777 });
   const [deadMansSwitch, setDeadMansSwitch] = useState<{ active: boolean; timeLeft: number; totalTime: number } | null>(null);
 
   // Battery Monitoring
@@ -203,23 +204,22 @@ export function useSafety() {
       console.warn('Haptics not supported');
     }
 
-    let currentPos: { lat: number, lng: number } | undefined;
+    let locToUse = currentPosition; // Use state position as baseline
     try {
       const pos = await Geolocation.getCurrentPosition({
         enableHighAccuracy: true,
-        timeout: 10000
+        timeout: 15000
       });
-      currentPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-      _addLocationLog(currentPos.lat, currentPos.lng, 'Panic Trigger Location');
+      locToUse = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      _addLocationLog(locToUse.lat, locToUse.lng, 'Panic Trigger Location');
     } catch (err) {
       console.error('Capacitor Location failed, falling back to Web API', err);
-      // Fallback to web API if capacitor fails (e.g. permissions)
       try {
         const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true });
+          navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 5000 });
         });
-        currentPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        _addLocationLog(currentPos.lat, currentPos.lng, 'Panic Trigger Location (Web Fallback)');
+        locToUse = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        _addLocationLog(locToUse.lat, locToUse.lng, 'Panic Trigger Location (Web Fallback)');
       } catch (webErr) {
         console.error('Web Location also failed', webErr);
       }
@@ -229,7 +229,7 @@ export function useSafety() {
       id: generateUUID(),
       timestamp: Date.now(),
       type: 'PANIC',
-      location: currentPos,
+      location: locToUse,
       details: `Panic button pressed. Emergency alerts (${Object.entries(settings.alertMethods || DEFAULT_SETTINGS.alertMethods).filter(([_, v]) => v).map(([k]) => k.toUpperCase()).join(', ')}) initiated to contacts.`,
     };
     
@@ -237,7 +237,7 @@ export function useSafety() {
 
     // Simulated & Native Intent alerts
     contacts.forEach(c => {
-      const gMapsUrl = `https://maps.google.com/?q=${currentPos?.lat},${currentPos?.lng}`;
+      const gMapsUrl = locToUse ? `https://maps.google.com/?q=${locToUse.lat},${locToUse.lng}` : 'Location Unavailable';
       const message = `${settings.emergencyMessage} ${gMapsUrl}`;
 
       if (settings.alertMethods.sms) {
@@ -304,6 +304,7 @@ export function useSafety() {
   }, [contacts, settings.emergencyMessage, settings.alertMethods, updateLogs, _addLocationLog]);
 
   const addLocationEntry = useCallback((lat: number, lng: number, label?: string) => {
+    setCurrentPosition({ lat, lng });
     _addLocationLog(lat, lng, label);
 
     // Monitoring
@@ -341,6 +342,7 @@ export function useSafety() {
     journey,
     isReady,
     batteryLevel,
+    currentPosition,
     deadMansSwitch,
     setDeadMansSwitch,
     updateContacts,

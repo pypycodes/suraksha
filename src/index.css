@@ -14,13 +14,13 @@
 
 @layer utilities {
   .panic-glow {
-    box-shadow: 0 0 50px rgba(239, 68, 68, 0.4);
+    box-shadow: 0 0 80px rgba(239, 68, 68, 0.6);
   }
 
   .glass-card {
-    background: rgba(30, 41, 59, 0.7);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(15, 23, 42, 0.8);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
   }
 
   .active-pulse {
