@@ -19,11 +19,11 @@ public class MainActivity extends BridgeActivity {
         filter.addAction(Intent.ACTION_SCREEN_OFF);
         filter.addAction(Intent.ACTION_SCREEN_ON);
         
-        registerReceiver(new BroadcastReceiver() {
+        // Register receiver for screen events using ContextCompat for backward compatibility
+        androidx.core.content.ContextCompat.registerReceiver(this, new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
                 long currentTime = System.currentTimeMillis();
-                // Reset count if more than 2 seconds between clicks
                 if (currentTime - lastClickTime > 2000) {
                     powerClickCount = 0;
                 }
@@ -31,11 +31,13 @@ public class MainActivity extends BridgeActivity {
                 powerClickCount++;
                 
                 if (powerClickCount >= 3) {
-                    // Trigger Panic in the webview
-                    getBridge().eval("window.dispatchEvent(new CustomEvent('nativePanicTrigger'))");
+                    // Trigger Panic in the webview using Capacitor's bridge
+                    if (bridge != null) {
+                        bridge.triggerWindowHostEvent("nativePanicTrigger");
+                    }
                     powerClickCount = 0;
                 }
             }
-        }, filter);
+        }, filter, androidx.core.content.ContextCompat.RECEIVER_EXPORTED);
     }
 }
