@@ -1,21 +1,19 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# Capacitor ProGuard Rules
+-keep class com.getcapacitor.** { *; }
+-keep interface com.getcapacitor.** { *; }
+-keep @com.getcapacitor.NativePlugin public class *
+-keep @com.getcapacitor.CapacitorPlugin public class *
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Suraksha Native Bridge Protection
+# This ensures that the JavaScript-to-Java communication is never renamed or deleted
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+-keep class com.suraksha.safety.MainActivity {
+    public void setupBridge(android.webkit.WebView);
+}
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Keep the Fused Location and SMS classes
+-keep class com.google.android.gms.location.** { *; }
+-keep class android.telephony.SmsManager { *; }
