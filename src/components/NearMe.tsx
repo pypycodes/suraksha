@@ -12,7 +12,10 @@ import {
   Map as MapIcon,
   Stethoscope,
   Pill,
-  Loader2
+  Loader2,
+  Wrench,
+  Utensils,
+  Hotel as HotelIcon
 } from 'lucide-react';
 import { SafetyMap } from './SafetyMap';
 import { cn } from '../lib/utils';
@@ -31,15 +34,32 @@ const RESOURCE_TYPES = [
   { id: 'hospital', label: 'Hospital', icon: Stethoscope, color: 'bg-red-500', tags: '["amenity"~"hospital|clinic"]' },
   { id: 'pharmacy', label: 'Pharmacy', icon: Pill, color: 'bg-green-500', tags: '["amenity"="pharmacy"]' },
   { id: 'fuel', label: 'Petrol', icon: Droplets, color: 'bg-amber-500', tags: '["amenity"="fuel"]' },
+  { id: 'garage', label: 'Mechanic', icon: Wrench, color: 'bg-slate-600', tags: '["shop"~"car_repair|motorcycle_repair"]' },
+  { id: 'food', label: 'Food', icon: Utensils, color: 'bg-orange-500', tags: '["amenity"~"restaurant|cafe|fast_food"]' },
+  { id: 'hotel', label: 'Hotels', icon: HotelIcon, color: 'bg-indigo-500', tags: '["tourism"~"hotel|hostel|guest_house"]' },
 ];
 
-export const NearMe: React.FC<{ currentPos: { lat: number, lng: number } }> = ({ currentPos }) => {
+export const NearMe: React.FC<{ currentPos: { lat: number, lng: number } | null }> = ({ currentPos }) => {
   const [activeType, setActiveType] = useState(RESOURCE_TYPES[0]);
   const [results, setResults] = useState<POI[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const lastFetchedPos = React.useRef<{lat: number, lng: number} | null>(null);
+
+  const getDistMeters = (pos1: {lat: number, lng: number}, pos2: {lat: number, lng: number}) => {
+    const R = 6371e3;
+    const dLat = (pos2.lat - pos1.lat) * Math.PI / 180;
+    const dLon = (pos2.lng - pos1.lng) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(pos1.lat * Math.PI / 180) * Math.cos(pos2.lat * Math.PI / 180) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
 
   const fetchResources = useCallback(async (type: typeof RESOURCE_TYPES[0]) => {
+    if (!currentPos) return;
+    setResults([]); // FIX: Clear previous results when starting new search
     setLoading(true);
     setError(null);
     
@@ -80,13 +100,38 @@ export const NearMe: React.FC<{ currentPos: { lat: number, lng: number } }> = ({
     }
   }, [currentPos]);
 
+  const lastFetchedType = React.useRef<string | null>(null);
+
   useEffect(() => {
-    fetchResources(activeType);
-  }, [activeType, fetchResources]);
+    if (!currentPos) return;
+    
+    const distMoved = lastFetchedPos.current 
+      ? getDistMeters(currentPos, lastFetchedPos.current)
+      : Infinity;
+
+    const typeChanged = lastFetchedType.current !== activeType.id;
+
+    // Fetch if type changed OR if we moved significantly
+    if (typeChanged || distMoved > 50 || !lastFetchedPos.current) {
+        lastFetchedPos.current = currentPos;
+        lastFetchedType.current = activeType.id;
+        fetchResources(activeType);
+    }
+  }, [activeType.id, currentPos, fetchResources, activeType]); 
 
   const handleNavigate = (poi: POI) => {
-    window.open(`https://www.google.com/maps/dir/?api=1&destination=${poi.lat},${poi.lon}`, '_blank');
+    // Force native Google Maps intent
+    window.open(`google.navigation:q=${poi.lat},${poi.lon}`, '_system');
   };
+
+  if (!currentPos) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-4">
+        <Loader2 className="w-10 h-10 text-zinc-300 animate-spin" />
+        <p className="text-zinc-500 font-medium">Acquiring GPS Signal...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="px-6 space-y-6 pb-32">
@@ -134,10 +179,18 @@ export const NearMe: React.FC<{ currentPos: { lat: number, lng: number } }> = ({
 
         <div className="grid gap-3">
           {error && <p className="text-xs text-red-500 text-center py-4">{error}</p>}
-          {!loading && results.length === 0 && (
+          
+          {loading && (
+            <div className="text-center py-12 bg-zinc-50 rounded-3xl border border-dotted border-zinc-200">
+               <Loader2 className="w-8 h-8 text-zinc-300 animate-spin mx-auto mb-2" />
+               <p className="text-xs text-zinc-400 font-medium">Finding the nearest {activeType.label}...</p>
+            </div>
+          )}
+
+          {!loading && results.length === 0 && !error && (
             <div className="text-center py-12 bg-zinc-100 rounded-3xl border border-dashed border-zinc-200">
               <Search className="w-8 h-8 text-zinc-300 mx-auto mb-2" />
-              <p className="text-xs text-zinc-400 font-medium">No results found within 5km</p>
+              <p className="text-xs text-zinc-400 font-medium">No {activeType.label} found within 5km</p>
             </div>
           )}
 

@@ -12,7 +12,12 @@ const ICON_MAP: Record<string, any> = {
   Baby,
 };
 
-export const Resources: React.FC<{ onOpenNearMe: () => void, onOpenFirstAid: () => void }> = ({ onOpenNearMe, onOpenFirstAid }) => {
+export const Resources: React.FC<{ 
+  onOpenNearMe: () => void, 
+  onOpenFirstAid: () => void,
+  onOpenFakeCall: () => void,
+  onOpenRecording: () => void
+}> = ({ onOpenNearMe, onOpenFirstAid, onOpenFakeCall, onOpenRecording }) => {
   const handleCall = (number: string) => {
      window.location.href = `tel:${number}`;
   };
@@ -42,6 +47,24 @@ export const Resources: React.FC<{ onOpenNearMe: () => void, onOpenFirstAid: () 
         </div>
         <ChevronRight className="w-6 h-6 text-red-200" />
       </button>
+
+      <h3 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider mb-2">Discrete Simulation</h3>
+      <div className="grid grid-cols-2 gap-3 mb-6">
+        <button 
+          onClick={onOpenFakeCall}
+          className="flex flex-col items-center gap-2 p-4 bg-indigo-50 border border-indigo-100 rounded-[28px] text-indigo-600 active:scale-95 transition-all shadow-sm"
+        >
+          <Phone className="w-6 h-6" />
+          <span className="text-[10px] font-black uppercase tracking-widest">Fake Call</span>
+        </button>
+        <button 
+          onClick={onOpenRecording}
+          className="flex flex-col items-center gap-2 p-4 bg-pink-50 border border-pink-100 rounded-[28px] text-pink-600 active:scale-95 transition-all shadow-sm"
+        >
+          <Shield className="w-6 h-6" />
+          <span className="text-[10px] font-black uppercase tracking-widest">Discreet Rec</span>
+        </button>
+      </div>
 
       <h3 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider mb-2">Emergency Contacts India</h3>
       <div className="grid gap-3">

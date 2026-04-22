@@ -24,6 +24,22 @@ allprojects {
     }
 }
 
+// Persistently remove flatDir warnings from subprojects (like Capacitor plugins)
+subprojects {
+    afterEvaluate { project ->
+        if (project.plugins.hasPlugin('com.android.library') || project.plugins.hasPlugin('com.android.application')) {
+            // Remove the problematic flatDir repository
+            project.repositories.removeIf { it instanceof FlatDirectoryArtifactRepository }
+            
+            // Re-add the dependencies via fileTree so they still work but without warnings
+            project.dependencies {
+                implementation project.fileTree(dir: 'libs', include: ['*.jar', '*.aar'])
+                implementation project.fileTree(dir: 'src/main/libs', include: ['*.jar', '*.aar'])
+            }
+        }
+    }
+}
+
 task clean(type: Delete) {
     delete rootProject.buildDir
 }

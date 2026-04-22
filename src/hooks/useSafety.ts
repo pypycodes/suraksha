@@ -1,8 +1,6 @@
-import { SMS } from '@awesome-cordova-plugins/sms';
-import { CallNumber } from '@awesome-cordova-plugins/call-number';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Geolocation } from '@capacitor/geolocation';
-import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
+import { Haptics, NotificationType } from '@capacitor/haptics';
 import { Contact, LocationEntry, EmergencyLog, AppSettings, Journey } from '../types';
 
 const STORAGE_KEYS = {
@@ -12,48 +10,32 @@ const STORAGE_KEYS = {
   SETTINGS: 'suraksha_settings',
 };
 
-const generateUUID = () => {
-  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-};
-
 const DEFAULT_SETTINGS: AppSettings = {
   userName: '',
   emergencyMessage: "I'm in an emergency! Here is my location.",
   fakeCallName: 'Home',
   fakeCallDelay: 5,
   autoRecordOnPanic: true,
-  voiceActivated: false,
   onboardingComplete: false,
   appMode: 'GENERAL',
-  geofence: {
-    enabled: false,
-    latitude: 0,
-    longitude: 0,
-    radius: 500,
-  },
+  geofence: { enabled: false, latitude: 0, longitude: 0, radius: 500 },
   fallDetection: false,
   lowBatteryAlert: false,
   shakeToAlert: false,
-  audioTrigger: false,
   darkMode: false,
-  alertMethods: {
-    sms: true,
-    call: true,
-  },
+  floatingSOS: false,
+  testMode: false,
+  alertMethods: { sms: true, call: true },
 };
 
 const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-  const R = 6371e3; // metres
+  const R = 6371e3;
   const φ1 = lat1 * Math.PI/180;
   const φ2 = lat2 * Math.PI/180;
   const Δφ = (lat2-lat1) * Math.PI/180;
   const Δλ = (lon2-lon1) * Math.PI/180;
-
-  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-            Math.cos(φ1) * Math.cos(φ2) *
-            Math.sin(Δλ/2) * Math.sin(Δλ/2);
+  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-
   return R * c;
 };
 
@@ -67,290 +49,256 @@ export function useSafety() {
   const [batteryLevel, setBatteryLevel] = useState<number | null>(null);
   const [currentPosition, setCurrentPosition] = useState<{ lat: number; lng: number } | null>(null);
   const [deadMansSwitch, setDeadMansSwitch] = useState<{ active: boolean; timeLeft: number; totalTime: number } | null>(null);
+  const [showToast, setShowToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+  const [isPanicActive, setIsPanicActive] = useState(false);
+  
+  const panicCooldownRef = useRef(false);
+  const staggeredSmsIntervalRef = useRef<any>(null);
+  const isPanicActiveRef = useRef(false);
+
+  useEffect(() => {
+    isPanicActiveRef.current = isPanicActive;
+  }, [isPanicActive]);
+
+  // Persistence Loaders
+  useEffect(() => {
+    const loadData = () => {
+      try {
+        const c = localStorage.getItem(STORAGE_KEYS.CONTACTS);
+        const h = localStorage.getItem(STORAGE_KEYS.HISTORY);
+        const l = localStorage.getItem(STORAGE_KEYS.LOGS);
+        const s = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+        if (c) setContacts(JSON.parse(c));
+        if (h) setHistory(JSON.parse(h));
+        if (l) setLogs(JSON.parse(l));
+        if (s) setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(s) });
+      } catch (e) {}
+      setIsReady(true);
+    };
+    loadData();
+  }, []);
+
+  // Toast Management
+  useEffect(() => {
+    if (showToast) {
+      const t = setTimeout(() => setShowToast(null), 1000);
+      return () => clearTimeout(t);
+    }
+  }, [showToast]);
 
   // Battery Monitoring
   useEffect(() => {
-    let batteryInstance: any = null;
-    let updateLevel: () => void;
-
-    navigator.getBattery?.().then((battery: any) => {
-      batteryInstance = battery;
-      updateLevel = () => {
-        const level = Math.floor(battery.level * 100);
-        setBatteryLevel(level);
-        if (settings.lowBatteryAlert && level <= 5) {
-           contacts.forEach(c => console.log(`SIMULATED Low Battery Alert for ${c.name}: ${level}% charge remaining.`));
-        }
-      };
-      battery.addEventListener('levelchange', updateLevel);
-      updateLevel();
-    }).catch(() => console.warn('Battery API fallback'));
-
-    return () => {
-      if (batteryInstance && updateLevel) {
-        batteryInstance.removeEventListener('levelchange', updateLevel);
-      }
+    const updateBattery = async () => {
+        try {
+            if ((window as any).NativeSOSBridge?.getBatteryLevel) {
+                (window as any).NativeSOSBridge.getBatteryLevel();
+            } else if ((navigator as any).getBattery) {
+                const b = await (navigator as any).getBattery();
+                setBatteryLevel(Math.floor(b.level * 100));
+            } else { setBatteryLevel(99); }
+        } catch (e) { setBatteryLevel(99); }
     };
-  }, [settings.lowBatteryAlert, contacts]);
+    const interval = setInterval(updateBattery, 30000);
+    updateBattery();
+    return () => clearInterval(interval);
+  }, []);
 
-  // Dead Man's Switch Timer
+  // Location Watcher (Gated by Onboarding)
+  useEffect(() => {
+    if (!settings.onboardingComplete) return;
+    
+    let watchId: string | null = null;
+    const startWatch = async () => {
+        try {
+            watchId = await Geolocation.watchPosition({ 
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0 
+            }, (pos) => {
+                if (!pos) return;
+                const newPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                setCurrentPosition(newPos);
+                if (settings.geofence.enabled && !isPanicActiveRef.current) {
+                    if (getDistance(newPos.lat, newPos.lng, settings.geofence.latitude, settings.geofence.longitude) > settings.geofence.radius) {
+                        triggerPanic();
+                    }
+                }
+            });
+        } catch (e) {}
+    };
+    startWatch();
+    return () => { if (watchId) Geolocation.clearWatch({ id: watchId }); };
+  }, [settings.geofence, settings.onboardingComplete]);
+
+  // Dead Man's Switch
   useEffect(() => {
     let interval: any;
     if (deadMansSwitch?.active && deadMansSwitch.timeLeft > 0) {
       interval = setInterval(() => {
         setDeadMansSwitch(prev => prev ? { ...prev, timeLeft: prev.timeLeft - 1 } : null);
       }, 1000);
-    } else if (deadMansSwitch?.active && deadMansSwitch.timeLeft === 0) {
+    } else if (deadMansSwitch?.active && deadMansSwitch.timeLeft <= 0) {
       triggerPanic();
-      setDeadMansSwitch(null);
     }
     return () => clearInterval(interval);
   }, [deadMansSwitch?.active, deadMansSwitch?.timeLeft]);
 
-  // Load data
+  // --- NATIVE PERMISSIONS SYNC ---
   useEffect(() => {
-    const savedContacts = localStorage.getItem(STORAGE_KEYS.CONTACTS);
-    const savedHistory = localStorage.getItem(STORAGE_KEYS.HISTORY);
-    const savedLogs = localStorage.getItem(STORAGE_KEYS.LOGS);
-    const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+    const handlePermissionsGranted = () => {
+      setSettings(prev => {
+        if (prev.onboardingComplete) return prev;
+        const next = { ...prev, onboardingComplete: true };
+        localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(next));
+        return next;
+      });
+      setShowToast({ message: 'Safety Protocols Activated!', type: 'success' });
+    };
+    window.addEventListener('nativePermissionsGranted', handlePermissionsGranted);
+    return () => window.removeEventListener('nativePermissionsGranted', handlePermissionsGranted);
+  }, []);
 
-    if (savedContacts) setContacts(JSON.parse(savedContacts));
-    if (savedHistory) setHistory(JSON.parse(savedHistory));
-    if (savedLogs) setLogs(JSON.parse(savedLogs));
-    
-    if (savedSettings) {
-      try {
-        const parsed = JSON.parse(savedSettings);
-        setSettings({
-          ...DEFAULT_SETTINGS,
-          ...parsed,
-          geofence: { ...DEFAULT_SETTINGS.geofence, ...(parsed.geofence || {}) },
-          alertMethods: { ...DEFAULT_SETTINGS.alertMethods, ...(parsed.alertMethods || {}) }
+  // --- FUSED LOCATION LISTENER ---
+  useEffect(() => {
+    const handleFused = (e: any) => {
+      const { latitude, longitude } = e.detail;
+      setCurrentPosition({ lat: latitude, lng: longitude });
+    };
+    window.addEventListener('fusedLocationUpdate', handleFused);
+    return () => window.removeEventListener('fusedLocationUpdate', handleFused);
+  }, []);
+
+  const sendAllSms = useCallback(async () => {
+    try {
+        // Request immediate fused fix from native
+        if ((window as any).NativeSOSBridge?.getFusedLocation) {
+            (window as any).NativeSOSBridge.getFusedLocation();
+        }
+
+        const coords = await Geolocation.getCurrentPosition({
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
         });
-      } catch (e) {
-        console.error('Failed to parse settings', e);
-      }
-    }
-    
-    // Request Native Permissions for Background SOS & Location
-    const requestNativePermissions = async () => {
-      try {
-        // Request Background SMS Permission if on Android
-        if ((window as any).sms && (window as any).sms.hasPermission) {
-          (window as any).sms.hasPermission((has: boolean) => {
-            if (!has) (window as any).sms.requestPermission(() => console.log('SMS Permission Granted'), () => console.warn('SMS Permission Denied'));
-          });
-        }
-
-        // Request Location Permissions
-        const perm = await Geolocation.checkPermissions();
-        if (perm.location !== 'granted') {
-          await Geolocation.requestPermissions();
-        }
+        const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${coords.coords.latitude},${coords.coords.longitude}`;
+        const message = `EMERGENCY SOS: I am in danger! Precise location: ${googleMapsUrl}`;
         
-        // Accurate background tracking hint
-        console.log('Location and SMS permissions initialized.');
-      } catch (e) {
-        console.warn('Native setup check failed', e);
-      }
-    };
+        contacts.forEach(c => {
+            const cleanPhone = String(c.phone).replace(/\s+/g, '');
+            if ((window as any).NativeSOSBridge?.send) {
+                (window as any).NativeSOSBridge.send(cleanPhone, message);
+            }
+        });
+    } catch (e) {
+        // Use last known position if fresh fix fails
+        const lat = currentPosition?.lat || 0;
+        const lng = currentPosition?.lng || 0;
+        const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+        const message = `EMERGENCY SOS: I am in danger! Last known location: ${googleMapsUrl}`;
+        
+        contacts.forEach(c => {
+            const cleanPhone = String(c.phone).replace(/\s+/g, '');
+            if ((window as any).NativeSOSBridge?.send) {
+                (window as any).NativeSOSBridge.send(cleanPhone, message);
+            }
+        });
+    }
+  }, [contacts, currentPosition]);
+
+  const markAsSafe = useCallback(() => {
+    setIsPanicActive(false);
+    isPanicActiveRef.current = false;
     
-      requestNativePermissions();
-      
-      // Get initial position
-      Geolocation.getCurrentPosition({ enableHighAccuracy: true }).then(pos => {
-        setCurrentPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-      }).catch(err => console.warn('Initial position fetch failed', err));
+    // Clear all intervals immediately
+    if (staggeredSmsIntervalRef.current) {
+      clearInterval(staggeredSmsIntervalRef.current);
+      staggeredSmsIntervalRef.current = null;
+    }
 
-      setIsReady(true);
-    }, []);
-
-  // Save data wrappers
-  const updateContacts = useCallback((newContacts: Contact[]) => {
-    setContacts(newContacts);
-    localStorage.setItem(STORAGE_KEYS.CONTACTS, JSON.stringify(newContacts));
+    // Set a cooldown to prevent accidental re-triggers (e.g. from a lingering shake)
+    panicCooldownRef.current = true;
+    setTimeout(() => { panicCooldownRef.current = false; }, 10000);
+    
+    setShowToast({ message: "You are marked as safe. All alerts stopped.", type: 'success' });
   }, []);
-
-  const updateHistory = useCallback((newHistory: LocationEntry[]) => {
-    setHistory(newHistory);
-    localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(newHistory));
-  }, []);
-
-  const updateLogs = useCallback((update: EmergencyLog[] | ((prev: EmergencyLog[]) => EmergencyLog[])) => {
-    setLogs(prev => {
-      const next = typeof update === 'function' ? update(prev) : update;
-      localStorage.setItem(STORAGE_KEYS.LOGS, JSON.stringify(next));
-      return next;
-    });
-  }, []);
-
-  const updateSettings = useCallback((newSettings: AppSettings) => {
-    setSettings(newSettings);
-    localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(newSettings));
-  }, []);
-
-  // Helpers
-  const _addLocationLog = useCallback((lat: number, lng: number, label?: string) => {
-    const newEntry: LocationEntry = {
-      id: generateUUID(),
-      timestamp: Date.now(),
-      latitude: lat,
-      longitude: lng,
-      label,
-    };
-    setHistory(prev => [newEntry, ...prev].slice(0, 50));
-    localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify([newEntry, ...history].slice(0, 50)));
-  }, [history]);
 
   const triggerPanic = useCallback(async () => {
-    // Vibrate to confirm trigger
-    try {
-      await Haptics.notification({ type: NotificationType.Error });
-    } catch (e) {
-      console.warn('Haptics not supported');
-    }
-
-    let locToUse = currentPosition;
-    try {
-      const pos = await Geolocation.getCurrentPosition({
-        enableHighAccuracy: true,
-        timeout: 20000,
-        maximumAge: 0
-      });
-      locToUse = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-      setCurrentPosition(locToUse); // Update state for future use
-      _addLocationLog(locToUse.lat, locToUse.lng, 'Panic Trigger Location');
-    } catch (err) {
-      console.error('Location fetch failed', err);
-      // Fallback is already locToUse (currentPosition)
-    }
+    if (isPanicActiveRef.current || panicCooldownRef.current) return;
+    
+    setIsPanicActive(true);
+    isPanicActiveRef.current = true;
+    try { Haptics.notification({ type: NotificationType.Error }); } catch (e) {}
 
     const newLog: EmergencyLog = {
-      id: generateUUID(),
+      id: Math.random().toString(36).substring(7),
       timestamp: Date.now(),
       type: 'PANIC',
-      location: locToUse,
-      details: `Panic button pressed. Emergency alerts (${Object.entries(settings.alertMethods || DEFAULT_SETTINGS.alertMethods).filter(([_, v]) => v).map(([k]) => k.toUpperCase()).join(', ')}) initiated to contacts.`,
+      details: `SOS Activated.`,
     };
     
-    updateLogs(prev => [newLog, ...prev]);
-
-    // Simulated & Native Intent alerts
-    contacts.forEach(c => {
-      const gMapsUrl = locToUse ? `https://www.google.com/maps/search/?api=1&query=${locToUse.lat},${locToUse.lng}` : 'Location Unavailable';
-      const message = `${settings.emergencyMessage} ${gMapsUrl}`;
-
-      if (settings.alertMethods.sms) {
-        console.log(`[SMS ATTEMPT] to ${c.phone}: ${message}`);
-        
-        // Normalize SMS sending logic for Native background execution
-        const options = {
-          android: {
-            intent: '', // STRICT: An empty string tells Android to bypass the editor UI
-            slot: -1    // Use default SIM slot
-          }
-        };
-
-        const trySilentSMS = () => {
-          // 1. Try raw window.sms (Cordova plugin)
-          if ((window as any).sms && (window as any).sms.send) {
-            (window as any).sms.send(c.phone, message, options, 
-              () => console.log(`[RAW SMS SUCCESS] to ${c.phone}`),
-              (err: any) => {
-                console.warn(`[RAW SMS FAILED] ${JSON.stringify(err)}. Falling back to intent.`);
-                window.open(`sms:${c.phone}?body=${encodeURIComponent(message)}`, '_blank');
-              }
-            );
-          } 
-          // 2. Try the Awesome Cordova Plugin wrapper (Promise based)
-          else {
-            SMS.send(c.phone, message, options)
-              .then(() => console.log(`[WRAPPED SMS SUCCESS] to ${c.phone}`))
-              .catch((err) => {
-                console.warn(`[WRAPPED SMS FAILED] ${err}. Falling back to intent.`);
-                window.open(`sms:${c.phone}?body=${encodeURIComponent(message)}`, '_blank');
-              });
-          }
-        };
-
-        try {
-          trySilentSMS();
-        } catch (e) {
-          console.error('[SMS CRITICAL ERROR]', e);
-          window.open(`sms:${c.phone}?body=${encodeURIComponent(message)}`, '_blank');
-        }
-      }
-      
-      if (settings.alertMethods.call) {
-        console.log(`[CALL ATTEMPT] to ${c.phone}`);
-        
-        // DIRECT CALL: The 'true' parameter tells Android to skip the Dialer screen
-        const callPlugin = (window as any).plugins?.CallNumber || CallNumber;
-        
-        try {
-          callPlugin.callNumber(() => {
-            console.log(`[DIRECT CALL SUCCESS] initiated to ${c.phone}`);
-          }, (err: any) => {
-            console.warn(`[DIRECT CALL FAILED] falling back to dialer: ${err}`);
-            window.open(`tel:${c.phone}`, '_blank');
-          }, c.phone, true);
-        } catch (e) {
-          console.warn('[DIRECT CALL UNSUPPORTED] falling back to dialer');
-          window.open(`tel:${c.phone}`, '_blank');
-        }
-      }
+    setLogs(prev => {
+        const next = [newLog, ...prev];
+        localStorage.setItem(STORAGE_KEYS.LOGS, JSON.stringify(next));
+        return next;
     });
 
-    return newLog;
-  }, [contacts, settings.emergencyMessage, settings.alertMethods, updateLogs, _addLocationLog]);
-
-  const addLocationEntry = useCallback((lat: number, lng: number, label?: string) => {
-    setCurrentPosition({ lat, lng });
-    _addLocationLog(lat, lng, label);
-
-    // Monitoring
-    if (settings.geofence.enabled) {
-      const dist = getDistance(lat, lng, settings.geofence.latitude, settings.geofence.longitude);
-      if (dist > settings.geofence.radius) {
-         console.warn('GEOFENCE BREACHED');
-         triggerPanic();
-      }
+    // SMS Protocol
+    if (settings.alertMethods.sms && !settings.testMode) {
+        sendAllSms();
+        staggeredSmsIntervalRef.current = setInterval(() => {
+            if (isPanicActiveRef.current) sendAllSms();
+            else clearInterval(staggeredSmsIntervalRef.current);
+        }, 120000);
+    } else if (settings.testMode) {
+        setShowToast({ message: "TEST MODE: SMS Suppressed", type: 'success' });
     }
 
-    if (journey && journey.active && journey.status === 'IN_TRANSIT') {
-      const dist = getDistance(lat, lng, journey.destLat, journey.destLng);
-      if (dist < 50) {
-        setJourney(prev => prev ? { ...prev, status: 'ARRIVED', active: false } : null);
-        const arrivalLog: EmergencyLog = {
-          id: generateUUID(),
-          timestamp: Date.now(),
-          type: 'RECORDING',
-          details: `Safe Arrival reached: ${journey.destinationName}`,
-          location: { lat, lng }
+    // Call Protocol (HARDENED BROADCAST BRIDGE)
+    if (settings.alertMethods.call && contacts.length > 0) {
+        const startHunting = async () => {
+            for (const c of contacts) {
+                if (!isPanicActiveRef.current) break;
+                if (settings.testMode) {
+                    setShowToast({ message: `TEST MODE: Calling ${c.name} (Simulated)`, type: 'success' });
+                    await new Promise(r => setTimeout(r, 5000));
+                    continue;
+                }
+                try {
+                    const cleanPhone = String(c.phone).replace(/\s+/g, '');
+                    if ((window as any).NativeSOSBridge?.call) {
+                        (window as any).NativeSOSBridge.call(cleanPhone);
+                        await new Promise(r => setTimeout(r, 20000));
+                    } else {
+                        window.open(`tel:${cleanPhone}`, '_system');
+                        await new Promise(r => setTimeout(r, 20000));
+                    }
+                } catch (e) {}
+            }
         };
-        updateLogs(prev => [arrivalLog, ...prev]);
-        contacts.forEach(c => console.log(`SIMULATED Arrival SMS to ${c.name}: Your loved one has reached ${journey.destinationName} safely.`));
-      }
+        startHunting();
     }
-  }, [settings, journey, triggerPanic, logs, updateLogs, contacts, _addLocationLog]);
+    return newLog;
+  }, [contacts, settings.alertMethods, sendAllSms]);
 
+  const stopSOS = useCallback(() => {
+    setIsPanicActive(false);
+    setDeadMansSwitch(null);
+    if (staggeredSmsIntervalRef.current) clearInterval(staggeredSmsIntervalRef.current);
+    setShowToast({ message: 'Status: Safe', type: 'success' });
+  }, []);
 
   return {
-    contacts,
-    history,
-    logs,
-    settings,
-    journey,
-    isReady,
-    batteryLevel,
-    currentPosition,
-    deadMansSwitch,
-    setDeadMansSwitch,
-    updateContacts,
-    updateSettings,
-    setJourney,
-    triggerPanic,
-    addLocationEntry,
-    updateLogs,
+    contacts, history, logs, settings, journey, isReady, batteryLevel,
+    currentPosition, deadMansSwitch, isPanicActive, setDeadMansSwitch,
+    updateContacts: (c: Contact[]) => { setContacts(c); localStorage.setItem(STORAGE_KEYS.CONTACTS, JSON.stringify(c)); },
+    updateSettings: (s: AppSettings) => { setSettings(s); localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(s)); },
+    setJourney, triggerPanic, stopSOS, 
+    lockGeofence: (radius: number) => {
+        if (!currentPosition) return;
+        const s = { ...settings, geofence: { enabled: !settings.geofence.enabled, latitude: currentPosition.lat, longitude: currentPosition.lng, radius } };
+        setSettings(s);
+        localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(s));
+    },
+    showToast, setShowToast,
   };
 }

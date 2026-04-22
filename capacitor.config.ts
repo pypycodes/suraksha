@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'Suraksha',
   webDir: 'dist',
   server: {
-    androidScheme: 'https'
+    androidScheme: 'http'
   }
 };
 

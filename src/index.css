@@ -31,4 +31,22 @@
     0%, 100% { opacity: 1; }
     50% { opacity: 0.5; }
   }
+
+  /* Wear OS / Watch Optimizations */
+  @media (max-width: 320px), (max-height: 320px) {
+    header, nav {
+      padding-top: 10px !important;
+      padding-bottom: 5px !important;
+    }
+    
+    .sos-button-container {
+      margin-top: 0 !important;
+      transform: scale(0.85);
+    }
+
+    /* Hide non-essential dashboard elements on tiny screens (Watches) */
+    .dashboard-secondary-elements {
+      display: none;
+    }
+  }
 }
