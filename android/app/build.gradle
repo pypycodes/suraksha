@@ -47,6 +47,30 @@ android {
     lintOptions {
         checkReleaseBuilds false
     }
+
+    applicationVariants.all { variant ->
+        variant.outputs.all { output ->
+            def fileName = "Suraksha-v${variant.versionName}"
+            if (output.outputFile.name.endsWith(".apk")) {
+                outputFileName = "${fileName}.apk"
+            }
+        }
+    }
+
+    // For App Bundles (AAB)
+    project.tasks.whenTaskAdded { task ->
+        if (task.name.startsWith("bundle")) {
+            def variantName = task.name.substring(6).toLowerCase()
+            if (variantName.contains("release")) {
+                task.doLast {
+                    def bundleFile = file("${buildDir}/outputs/bundle/release/app-release.aab")
+                    if (bundleFile.exists()) {
+                        bundleFile.renameTo(file("${buildDir}/outputs/bundle/release/Suraksha-v${android.defaultConfig.versionName}.aab"))
+                    }
+                }
+            }
+        }
+    }
 }
 
 dependencies {
