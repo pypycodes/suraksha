@@ -18,7 +18,7 @@ A comprehensive local-first safety app for women, children, and the elderly in I
 This project uses **Capacitor** to build native Android applications from the React web source.
 
 ### 1. Initial Setup
-Ensure you have the Android SDK tools installed in your WSL environment.
+Ensure you have the Android SDK tools installed in your WSL environment..
 ```bash
 # Add the android folder to your project
 npx cap add android
