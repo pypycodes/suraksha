@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <uses-feature android:name="android.hardware.type.watch" android:required="false" />
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     
     <queries>
         <intent>
@@ -91,6 +91,9 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
+    
+    <!-- BLOCK SENSITIVE PERMISSIONS INJECTED BY PLUGINS -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" tools:node="remove" />
 
     <uses-feature android:name="android.hardware.location.gps" />
 </manifest>
