@@ -560,13 +560,6 @@ function SettingsView({ settings, onUpdate }: { settings: any, onUpdate: any }) 
              <div className="space-y-6">
                 <Toggle label="Silent SMS Alerts" checked={settings.alertMethods.sms} onChange={v => onUpdate({...settings, alertMethods: {...settings.alertMethods, sms: v}})} />
                 <Toggle label="Emergency Voice Calls" checked={settings.alertMethods.call} onChange={v => onUpdate({...settings, alertMethods: {...settings.alertMethods, call: v}})} />
-                
-                <button 
-                  onClick={() => (window as any).NativeSOSBridge?.requestSmsPermission?.()}
-                  className="w-full py-3 bg-zinc-100 dark:bg-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest"
-                >
-                  Verify Native Permissions
-                </button>
              </div>
           </div>
        </div>

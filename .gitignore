@@ -6,3 +6,7 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Android Security
+android/app/*.keystore
+android/app/signing.properties
